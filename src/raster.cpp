@@ -35,9 +35,9 @@ void rasterize_triangle(const Program& program, const UniformAttributes& uniform
 		Eigen::Matrix3f Ai = A.inverse();
 
 		// Rasterize the triangle
-		for (unsigned i=lx; i<=ux; i++)
+		for (int i=lx; i<=ux; i++)
 		{
-			for (unsigned j=ly; j<=uy; j++)
+			for (int j=ly; j<=uy; j++)
 			{
 				// The pixel center is offset by 0.5, 0.5
 				Eigen::Vector3f pixel(i+0.5,j+0.5,1);
@@ -100,9 +100,9 @@ void rasterize_line(const Program& program, const UniformAttributes& uniform, co
 		float ll  = (l1-l2).squaredNorm();
 
 		// Rasterize the line
-		for (unsigned i=lx; i<=ux; i++)
+		for (int i=lx; i<=ux; i++)
 		{
-			for (unsigned j=ly; j<=uy; j++)
+			for (int j=ly; j<=uy; j++)
 			{
 				// The pixel center is offset by 0.5, 0.5
 				Eigen::Vector2f pixel(i+0.5,j+0.5);
@@ -123,8 +123,11 @@ void rasterize_line(const Program& program, const UniformAttributes& uniform, co
 				if ((pixel - pixel_p).squaredNorm() < (line_thickness*line_thickness))
 				{
 					VertexAttributes va = VertexAttributes::interpolate(v1,v2,v1,1-t,t,0);
-					FragmentAttributes frag = program.FragmentShader(va,uniform);
-					frameBuffer(i,j) = program.BlendingShader(frag,frameBuffer(i,j));
+					if (va.position[2] >= -1 && va.position[2] <= 1) {
+						FragmentAttributes frag = program.FragmentShader(va,uniform);
+						frameBuffer(i,j) = program.BlendingShader(frag,frameBuffer(i,j));
+					}
+					
 				}
 			}
 		}
