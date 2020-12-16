@@ -26,6 +26,8 @@ namespace
 SDLViewer::SDLViewer()
     : window(nullptr), window_surface(nullptr), redraw_next(false)
 {
+    current_mode = insertion;
+    num_new_vertices = 0;
 }
 
 void SDLViewer::resize(const int w, const int h)
@@ -150,6 +152,7 @@ void SDLViewer::launch(const int redraw_interval)
                 break;
 
             case SDL_MOUSEBUTTONDOWN:
+                break;
             case SDL_MOUSEBUTTONUP:
                 if (mouse_pressed != nullptr)
                     mouse_pressed(event.button.x, event.button.y, event.button.state == SDL_PRESSED, event.button.button, event.button.clicks);

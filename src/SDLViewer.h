@@ -30,6 +30,9 @@ KMOD_GUI (KMOD_LGUI|KMOD_RGUI)
  *
  */
 
+
+enum mode {insertion, translation, deletion, rotation, scaling, color};
+
 class SDLViewer
 {
 public:
@@ -67,6 +70,11 @@ public:
     void update();
 
     bool redraw_next;
+
+    // mode
+    mode current_mode;
+    // number of vertices added for the new triangle (if in insertion mode)
+    int num_new_vertices;
 
 private:
     // The window we'll be rendering to
