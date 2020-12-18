@@ -56,17 +56,6 @@ int select_triangle(vector<VertexAttributes> &triangle_vertices, vector<VertexAt
                      float x, float y) {
     for (int i = triangle_vertices.size() / 3 - 1; i >=0; i--) {
         if (in_triangle(x, y, triangle_vertices.at(3*i), triangle_vertices.at(3*i+1), triangle_vertices.at(3*i+2))) {
-            triangle_vertices[3*i].selected = true;
-            triangle_vertices[3*i+1].selected = true;
-            triangle_vertices[3*i+2].selected = true;
-
-            line_vertices[6*i].selected = true;
-            line_vertices[6*i+1].selected = true;
-            line_vertices[6*i+2].selected = true;
-            line_vertices[6*i+3].selected = true;
-            line_vertices[6*i+4].selected = true;
-            line_vertices[6*i+5].selected = true;
-
             return i;
         }
     }
@@ -218,6 +207,18 @@ int main(int argc, char *args[])
             }
             case translation: {
                 int selected = select_triangle(triangle_vertices, line_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
+                if (selected != -1) {
+                    triangle_vertices[3*selected].selected = true;
+                    triangle_vertices[3*selected+1].selected = true;
+                    triangle_vertices[3*selected+2].selected = true;
+
+                    line_vertices[6*selected].selected = true;
+                    line_vertices[6*selected+1].selected = true;
+                    line_vertices[6*selected+2].selected = true;
+                    line_vertices[6*selected+3].selected = true;
+                    line_vertices[6*selected+4].selected = true;
+                    line_vertices[6*selected+5].selected = true;
+                }
                 break;
             }
             case deletion: {
@@ -225,6 +226,7 @@ int main(int argc, char *args[])
                 if (selected != -1) {
                     triangle_vertices.erase(triangle_vertices.begin() + 3*selected, triangle_vertices.begin() + 3*selected+3);
                     line_vertices.erase(line_vertices.begin() + 6*selected, line_vertices.begin() + 6*selected+6);
+                    temp_lines.clear();
                 }
                 break;
             }
