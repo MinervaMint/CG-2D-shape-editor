@@ -1,6 +1,8 @@
 #include "SDLViewer.h"
 
 #include <Eigen/Core>
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
 
 #include <functional>
 #include <iostream>
@@ -31,10 +33,50 @@ void clear_bg(FrameBuffer& frameBuffer) {
 }
 
 
-void select_triangle() {
-
+bool orientation_test(Vector3f a, Vector3f b) {
+    return ((a.cross(b))(2) > 0);
 }
 
+
+bool in_triangle(float x, float y, VertexAttributes va, VertexAttributes vb, VertexAttributes vc) {
+    Vector3f a, b, c, p;
+    a << va.position(0), va.position(1), 0;
+    b << vb.position(0), vb.position(1), 0;
+    c << vc.position(0), vc.position(1), 0;
+    p << x, y, 0;
+
+    if ((orientation_test(b-a, p-a) && orientation_test(c-b, p-b) && orientation_test(a-c, p-c)) ||
+        (!orientation_test(b-a, p-a) && !orientation_test(c-b, p-b) && !orientation_test(a-c, p-c)))
+        return true;
+    return false;
+}
+
+
+int select_triangle(vector<VertexAttributes> &triangle_vertices, vector<VertexAttributes> &line_vertices, 
+                     float x, float y) {
+    for (int i = triangle_vertices.size() / 3 - 1; i >=0; i--) {
+        if (in_triangle(x, y, triangle_vertices.at(3*i), triangle_vertices.at(3*i+1), triangle_vertices.at(3*i+2))) {
+            triangle_vertices[3*i].selected = true;
+            triangle_vertices[3*i+1].selected = true;
+            triangle_vertices[3*i+2].selected = true;
+
+            line_vertices[6*i].selected = true;
+            line_vertices[6*i+1].selected = true;
+            line_vertices[6*i+2].selected = true;
+            line_vertices[6*i+3].selected = true;
+            line_vertices[6*i+4].selected = true;
+            line_vertices[6*i+5].selected = true;
+
+            return i;
+        }
+    }
+    return -1;
+}
+
+
+void restore_depth(int triangle_index, vector<VertexAttributes> &triangle_vertices, vector<VertexAttributes> &line_vertices, FrameBuffer &frameBuffer) {
+
+}
 
 
 
@@ -54,7 +96,13 @@ int main(int argc, char *args[])
 
 	// The vertex shader is the identity
 	program.VertexShader = [](const VertexAttributes& va, const UniformAttributes& uniform) {
-        return va;
+        VertexAttributes out(va.position(0), va.position(1), va.position(2));
+        out.color = va.color;
+        out.order = va.order;
+        out.selected = va.selected;
+        if (out.selected)
+            out.color << 0,0,1,1;
+        return out;
 	};
 
 	// The fragment shader uses a fixed color
@@ -109,6 +157,7 @@ int main(int argc, char *args[])
             case insertion: {
                 VertexAttributes new_vertex = VertexAttributes((float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1, 0);
                 new_vertex.color << 1,0,0,1;
+                new_vertex.order = uniform.index;
                 if (viewer.num_new_vertices == 1) {
                     temp_lines.clear();
                     temp_lines.push_back(line_vertices.at(line_vertices.size() - 1));
@@ -125,6 +174,10 @@ int main(int argc, char *args[])
                 }
                 break;
             }
+            case translation: {
+
+                break;
+            }
             
             default:
                 break;
@@ -135,7 +188,7 @@ int main(int argc, char *args[])
 
     viewer.mouse_pressed = [&](int x, int y, bool is_pressed, int button, int clicks) {
         switch (viewer.current_mode) {
-            case insertion:{
+            case insertion: {
                 VertexAttributes new_vertex = VertexAttributes((float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1, 0);
                 new_vertex.color << 1,0,0,1;
                 new_vertex.order = uniform.index;
@@ -161,6 +214,18 @@ int main(int argc, char *args[])
                     uniform.index++;
                 }
             
+                break;
+            }
+            case translation: {
+                int selected = select_triangle(triangle_vertices, line_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
+                break;
+            }
+            case deletion: {
+                int selected = select_triangle(triangle_vertices, line_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
+                if (selected != -1) {
+                    triangle_vertices.erase(triangle_vertices.begin() + 3*selected, triangle_vertices.begin() + 3*selected+3);
+                    line_vertices.erase(line_vertices.begin() + 6*selected, line_vertices.begin() + 6*selected+6);
+                }
                 break;
             }
             

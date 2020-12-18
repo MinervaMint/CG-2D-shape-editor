@@ -9,6 +9,7 @@ class VertexAttributes
 	{
 		position << x,y,z,w;
 		color << 1,1,1,1;
+		selected = false;
 	}
 
     // Interpolates the vertex attributes
@@ -25,12 +26,14 @@ class VertexAttributes
         r.position = alpha*a.position + beta*b.position + gamma*c.position;
 		r.color = alpha*a.color + beta*b.color + gamma*c.color;
 		r.order = a.order;
+		r.selected = a.selected;
         return r;
     }
 
 	Eigen::Vector4f position;
 	Eigen::Vector4f color;
 	int order;
+	bool selected;
 };
 
 class FragmentAttributes
