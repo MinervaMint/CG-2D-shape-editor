@@ -24,11 +24,13 @@ class VertexAttributes
         VertexAttributes r;
         r.position = alpha*a.position + beta*b.position + gamma*c.position;
 		r.color = alpha*a.color + beta*b.color + gamma*c.color;
+		r.order = a.order;
         return r;
     }
 
 	Eigen::Vector4f position;
 	Eigen::Vector4f color;
+	int order;
 };
 
 class FragmentAttributes
@@ -40,6 +42,7 @@ class FragmentAttributes
 	}
 
 	Eigen::Vector4f color;
+	int order;
 };
 
 class FrameBufferAttributes
@@ -48,12 +51,19 @@ class FrameBufferAttributes
 	FrameBufferAttributes(uint8_t r = 0, uint8_t g = 0, uint8_t b = 0, uint8_t a = 255)
 	{
 		color << r,g,b,a;
+		depth = -1;
 	}
 
 	Eigen::Matrix<uint8_t,4,1> color;
+	int depth;
 };
 
 class UniformAttributes
 {
 	public:
+		int index;
+
+	UniformAttributes() {
+		index = 0;
+	}
 };

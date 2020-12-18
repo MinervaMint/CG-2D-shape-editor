@@ -46,7 +46,7 @@ int main(int argc, char *args[])
     // The Framebuffer storing the image rendered by the rasterizer
 	Eigen::Matrix<FrameBufferAttributes,Eigen::Dynamic,Eigen::Dynamic> frameBuffer(width, height);
 
-	// Global Constants (empty in this example)
+	// Global Constants
 	UniformAttributes uniform;
 
 	// Basic rasterization program
@@ -54,7 +54,7 @@ int main(int argc, char *args[])
 
 	// The vertex shader is the identity
 	program.VertexShader = [](const VertexAttributes& va, const UniformAttributes& uniform) {
-		return va;
+        return va;
 	};
 
 	// The fragment shader uses a fixed color
@@ -62,20 +62,34 @@ int main(int argc, char *args[])
 		return FragmentAttributes(va.color(0),va.color(1),va.color(2));
 	};
 
-	// The blending shader converts colors between 0 and 1 to uint8
-	program.BlendingShader = [](const FragmentAttributes& fa, const FrameBufferAttributes& previous) {
-		return FrameBufferAttributes(fa.color[0]*255,fa.color[1]*255,fa.color[2]*255,fa.color[3]*255);
+	// The blending shader for things really drawn
+	function<FrameBufferAttributes(const FragmentAttributes&, const FrameBufferAttributes&)> BS = [](const FragmentAttributes& fa, const FrameBufferAttributes& previous) {
+        if (fa.order >= previous.depth) {
+            FrameBufferAttributes out(fa.color[0]*255,fa.color[1]*255,fa.color[2]*255,fa.color[3]*255);
+            out.depth = fa.order;
+            return out;
+        }
+        else 
+            return previous;        
 	};
+    // The blending shader for preview segments
+    function<FrameBufferAttributes(const FragmentAttributes&, const FrameBufferAttributes&)> temp_BS = [](const FragmentAttributes& fa, const FrameBufferAttributes& previous) {
+        return FrameBufferAttributes(fa.color[0]*255,fa.color[1]*255,fa.color[2]*255,fa.color[3]*255);
+    };
+
 
 
     // The fragment shader for lines
 	function<FragmentAttributes(const VertexAttributes&, const UniformAttributes&)> line_FS = [](const VertexAttributes& va, const UniformAttributes& uniform) {
 		FragmentAttributes out = FragmentAttributes(0,0,0);
+        out.order = va.order;
         return out;
 	};
     // The fragment shader for triangles
 	function<FragmentAttributes(const VertexAttributes&, const UniformAttributes&)> triangle_FS = [](const VertexAttributes& va, const UniformAttributes& uniform) {
-        return FragmentAttributes(va.color(0),va.color(1),va.color(2));
+        FragmentAttributes out(va.color(0),va.color(1),va.color(2));
+        out.order = va.order;
+        return out;
     };
 
 
@@ -124,6 +138,7 @@ int main(int argc, char *args[])
             case insertion:{
                 VertexAttributes new_vertex = VertexAttributes((float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1, 0);
                 new_vertex.color << 1,0,0,1;
+                new_vertex.order = uniform.index;
                 viewer.num_new_vertices++;
 
                 if (viewer.num_new_vertices == 1) {
@@ -143,6 +158,7 @@ int main(int argc, char *args[])
                     line_vertices.push_back(new_vertex);
 
                     viewer.num_new_vertices = 0;
+                    uniform.index++;
                 }
             
                 break;
@@ -183,10 +199,13 @@ int main(int argc, char *args[])
         clear_bg(frameBuffer);
 
         program.FragmentShader = triangle_FS;
+        program.BlendingShader = BS;
        	rasterize_triangles(program,uniform,triangle_vertices,frameBuffer);
         program.FragmentShader = line_FS;
-        rasterize_lines(program, uniform, temp_lines, 0.5, frameBuffer);
-        rasterize_lines(program, uniform, line_vertices, 0.5, frameBuffer);
+        rasterize_lines(program, uniform, line_vertices, 1, frameBuffer);
+        
+        program.BlendingShader = temp_BS;
+        rasterize_lines(program, uniform, temp_lines, 1, frameBuffer);
 
         // Buffer for exchanging data between rasterizer and sdl viewer
         Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic> R(width, height);
