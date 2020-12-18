@@ -32,6 +32,9 @@ void clear_bg(FrameBuffer& frameBuffer) {
 	}
 }
 
+void reset_framebuffer(FrameBuffer& frameBuffer) {
+	frameBuffer.setConstant(FrameBufferAttributes());
+}
 
 bool orientation_test(Vector3f a, Vector3f b) {
     return ((a.cross(b))(2) > 0);
@@ -116,18 +119,19 @@ int main(int argc, char *args[])
 
 
 
-    // The fragment shader for lines
-	function<FragmentAttributes(const VertexAttributes&, const UniformAttributes&)> line_FS = [](const VertexAttributes& va, const UniformAttributes& uniform) {
-		FragmentAttributes out = FragmentAttributes(0,0,0);
-        out.order = va.order;
-        return out;
-	};
     // The fragment shader for triangles
 	function<FragmentAttributes(const VertexAttributes&, const UniformAttributes&)> triangle_FS = [](const VertexAttributes& va, const UniformAttributes& uniform) {
         FragmentAttributes out(va.color(0),va.color(1),va.color(2));
         out.order = va.order;
         return out;
     };
+    // The fragment shader for lines
+	function<FragmentAttributes(const VertexAttributes&, const UniformAttributes&)> line_FS = [](const VertexAttributes& va, const UniformAttributes& uniform) {
+		FragmentAttributes out = FragmentAttributes(0,0,0);
+        out.order = va.order;
+        return out;
+	};
+    
 
 
 
@@ -263,6 +267,7 @@ int main(int argc, char *args[])
 
     viewer.redraw = [&](SDLViewer &viewer) {
         // Clear the framebuffer
+        reset_framebuffer(frameBuffer);
         clear_bg(frameBuffer);
 
         program.FragmentShader = triangle_FS;
