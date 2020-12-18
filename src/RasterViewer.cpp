@@ -19,6 +19,17 @@ using namespace Eigen;
 
 
 
+void clear_bg(FrameBuffer& frameBuffer) {
+	for (int i = 0; i <= frameBuffer.rows() - 1; i++) {
+		for (int j = 0; j <= frameBuffer.cols() - 1; j++) {
+			frameBuffer(i,j).color(0) = 255;
+			frameBuffer(i,j).color(1) = 255;
+			frameBuffer(i,j).color(2) = 255;
+			frameBuffer(i,j).color(3) = 255;
+		}
+	}
+}
+
 
 void select_triangle() {
 
@@ -42,22 +53,33 @@ int main(int argc, char *args[])
 	Program program;
 
 	// The vertex shader is the identity
-	program.VertexShader = [](const VertexAttributes& va, const UniformAttributes& uniform)
-	{
+	program.VertexShader = [](const VertexAttributes& va, const UniformAttributes& uniform) {
 		return va;
 	};
 
 	// The fragment shader uses a fixed color
-	program.FragmentShader = [](const VertexAttributes& va, const UniformAttributes& uniform)
-	{
+	program.FragmentShader = [](const VertexAttributes& va, const UniformAttributes& uniform) {
 		return FragmentAttributes(va.color(0),va.color(1),va.color(2));
 	};
 
 	// The blending shader converts colors between 0 and 1 to uint8
-	program.BlendingShader = [](const FragmentAttributes& fa, const FrameBufferAttributes& previous)
-	{
+	program.BlendingShader = [](const FragmentAttributes& fa, const FrameBufferAttributes& previous) {
 		return FrameBufferAttributes(fa.color[0]*255,fa.color[1]*255,fa.color[2]*255,fa.color[3]*255);
 	};
+
+
+    // The fragment shader for lines
+	function<FragmentAttributes(const VertexAttributes&, const UniformAttributes&)> line_FS = [](const VertexAttributes& va, const UniformAttributes& uniform) {
+		FragmentAttributes out = FragmentAttributes(0,0,0);
+        return out;
+	};
+    // The fragment shader for triangles
+	function<FragmentAttributes(const VertexAttributes&, const UniformAttributes&)> triangle_FS = [](const VertexAttributes& va, const UniformAttributes& uniform) {
+        return FragmentAttributes(va.color(0),va.color(1),va.color(2));
+    };
+
+
+
 
     // vertices
 	vector<VertexAttributes> triangle_vertices;
@@ -75,16 +97,16 @@ int main(int argc, char *args[])
                 new_vertex.color << 1,0,0,1;
                 if (viewer.num_new_vertices == 1) {
                     temp_lines.clear();
-                    temp_lines.push_back(line_vertices.at(0));
+                    temp_lines.push_back(line_vertices.at(line_vertices.size() - 1));
                     temp_lines.push_back(new_vertex);
                 }
                 else if (viewer.num_new_vertices == 2) {
                     temp_lines.clear();
-                    temp_lines.push_back(line_vertices.at(0));
-                    temp_lines.push_back(line_vertices.at(1));
-                    temp_lines.push_back(line_vertices.at(0));
+                    temp_lines.push_back(line_vertices.at(line_vertices.size() - 2));
+                    temp_lines.push_back(line_vertices.at(line_vertices.size() - 1));
+                    temp_lines.push_back(line_vertices.at(line_vertices.size() - 2));
                     temp_lines.push_back(new_vertex);
-                    temp_lines.push_back(line_vertices.at(1));
+                    temp_lines.push_back(line_vertices.at(line_vertices.size() - 1));
                     temp_lines.push_back(new_vertex);
                 }
                 break;
@@ -108,15 +130,18 @@ int main(int argc, char *args[])
                     line_vertices.push_back(new_vertex);
                 } 
                 else if (viewer.num_new_vertices == 2) {
-                    temp_lines.clear();
                     line_vertices.push_back(new_vertex);
                 }
                 else if (viewer.num_new_vertices == 3) {
-                    temp_lines.clear();
-                    triangle_vertices.push_back(line_vertices[0]);
-                    triangle_vertices.push_back(line_vertices[1]);
+                    triangle_vertices.push_back(temp_lines.at(0));
+                    triangle_vertices.push_back(temp_lines.at(1));
                     triangle_vertices.push_back(new_vertex);
-                    line_vertices.clear();
+                    
+                    line_vertices.push_back(temp_lines.at(0));
+                    line_vertices.push_back(new_vertex);
+                    line_vertices.push_back(temp_lines.at(1));
+                    line_vertices.push_back(new_vertex);
+
                     viewer.num_new_vertices = 0;
                 }
             
@@ -155,11 +180,11 @@ int main(int argc, char *args[])
 
     viewer.redraw = [&](SDLViewer &viewer) {
         // Clear the framebuffer
-        for (unsigned i=0;i<frameBuffer.rows();i++)
-            for (unsigned j=0;j<frameBuffer.cols();j++)
-                frameBuffer(i,j).color << 0,0,0,1;
+        clear_bg(frameBuffer);
 
+        program.FragmentShader = triangle_FS;
        	rasterize_triangles(program,uniform,triangle_vertices,frameBuffer);
+        program.FragmentShader = line_FS;
         rasterize_lines(program, uniform, temp_lines, 0.5, frameBuffer);
         rasterize_lines(program, uniform, line_vertices, 0.5, frameBuffer);
 
