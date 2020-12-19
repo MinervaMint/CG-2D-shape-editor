@@ -248,47 +248,53 @@ int main(int argc, char *args[])
                 break;
             }
             case translation: {
-                int selected = select_triangle(triangle_vertices, line_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
-                if (selected != -1) {
-                    compute_barycenter(triangle_vertices, selected, uniform);
-                    if (is_pressed) {
+                if (is_pressed) {
+                    uniform.selected_triangle = select_triangle(triangle_vertices, line_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
+                    if (uniform.selected_triangle != -1) {
+                        compute_barycenter(triangle_vertices, uniform.selected_triangle, uniform);
                         reset_T(uniform);
-                        triangle_vertices[3*selected].selected = true;
-                        triangle_vertices[3*selected+1].selected = true;
-                        triangle_vertices[3*selected+2].selected = true;
+                        triangle_vertices[3*uniform.selected_triangle].selected = true;
+                        triangle_vertices[3*uniform.selected_triangle+1].selected = true;
+                        triangle_vertices[3*uniform.selected_triangle+2].selected = true;
 
-                        line_vertices[6*selected].selected = true;
-                        line_vertices[6*selected+1].selected = true;
-                        line_vertices[6*selected+2].selected = true;
-                        line_vertices[6*selected+3].selected = true;
-                        line_vertices[6*selected+4].selected = true;
-                        line_vertices[6*selected+5].selected = true;
-                    }
-                    else {
-                        triangle_vertices[3*selected].selected = false;
-                        triangle_vertices[3*selected+1].selected = false;
-                        triangle_vertices[3*selected+2].selected = false;
-
-                        line_vertices[6*selected].selected = false;
-                        line_vertices[6*selected+1].selected = false;
-                        line_vertices[6*selected+2].selected = false;
-                        line_vertices[6*selected+3].selected = false;
-                        line_vertices[6*selected+4].selected = false;
-                        line_vertices[6*selected+5].selected = false;
-
-                        // update position
-                        triangle_vertices[3*selected].position = uniform.T * triangle_vertices[3*selected].position;
-                        triangle_vertices[3*selected+1].position = uniform.T * triangle_vertices[3*selected+1].position;
-                        triangle_vertices[3*selected+2].position = uniform.T * triangle_vertices[3*selected+2].position;
-
-                        line_vertices[6*selected].position = uniform.T * line_vertices[6*selected].position;
-                        line_vertices[6*selected+1].position = uniform.T * line_vertices[6*selected+1].position;
-                        line_vertices[6*selected+2].position = uniform.T * line_vertices[6*selected+2].position;
-                        line_vertices[6*selected+3].position = uniform.T * line_vertices[6*selected+3].position;
-                        line_vertices[6*selected+4].position = uniform.T * line_vertices[6*selected+4].position;
-                        line_vertices[6*selected+5].position = uniform.T * line_vertices[6*selected+5].position;
+                        line_vertices[6*uniform.selected_triangle].selected = true;
+                        line_vertices[6*uniform.selected_triangle+1].selected = true;
+                        line_vertices[6*uniform.selected_triangle+2].selected = true;
+                        line_vertices[6*uniform.selected_triangle+3].selected = true;
+                        line_vertices[6*uniform.selected_triangle+4].selected = true;
+                        line_vertices[6*uniform.selected_triangle+5].selected = true;
                     }
                 }
+                else {
+                    if (uniform.selected_triangle != -1) {
+                        triangle_vertices[3*uniform.selected_triangle].selected = false;
+                        triangle_vertices[3*uniform.selected_triangle+1].selected = false;
+                        triangle_vertices[3*uniform.selected_triangle+2].selected = false;
+
+                        line_vertices[6*uniform.selected_triangle].selected = false;
+                        line_vertices[6*uniform.selected_triangle+1].selected = false;
+                        line_vertices[6*uniform.selected_triangle+2].selected = false;
+                        line_vertices[6*uniform.selected_triangle+3].selected = false;
+                        line_vertices[6*uniform.selected_triangle+4].selected = false;
+                        line_vertices[6*uniform.selected_triangle+5].selected = false;
+
+                        // update position
+                        triangle_vertices[3*uniform.selected_triangle].position = uniform.T * triangle_vertices[3*uniform.selected_triangle].position;
+                        triangle_vertices[3*uniform.selected_triangle+1].position = uniform.T * triangle_vertices[3*uniform.selected_triangle+1].position;
+                        triangle_vertices[3*uniform.selected_triangle+2].position = uniform.T * triangle_vertices[3*uniform.selected_triangle+2].position;
+
+                        line_vertices[6*uniform.selected_triangle].position = uniform.T * line_vertices[6*uniform.selected_triangle].position;
+                        line_vertices[6*uniform.selected_triangle+1].position = uniform.T * line_vertices[6*uniform.selected_triangle+1].position;
+                        line_vertices[6*uniform.selected_triangle+2].position = uniform.T * line_vertices[6*uniform.selected_triangle+2].position;
+                        line_vertices[6*uniform.selected_triangle+3].position = uniform.T * line_vertices[6*uniform.selected_triangle+3].position;
+                        line_vertices[6*uniform.selected_triangle+4].position = uniform.T * line_vertices[6*uniform.selected_triangle+4].position;
+                        line_vertices[6*uniform.selected_triangle+5].position = uniform.T * line_vertices[6*uniform.selected_triangle+5].position;
+
+                        // reset uniform.selected_triangle
+                        uniform.selected_triangle = -1;
+                    }
+                }
+
                 break;
             }
             case deletion: {

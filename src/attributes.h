@@ -65,6 +65,7 @@ class UniformAttributes
 {
 	public:
 		int index;
+		int selected_triangle;
 
 		Eigen::Matrix4f T = Eigen::Matrix4f::Zero(4,4);
 		Eigen::Vector3f from_position = Eigen::Vector3f(0,0,0);
@@ -72,6 +73,7 @@ class UniformAttributes
 
 	UniformAttributes() {
 		index = 0;
+		selected_triangle = -1;
 		T << 1,0,0,0,
 			 0,1,0,0,
 			 0,0,1,0,
