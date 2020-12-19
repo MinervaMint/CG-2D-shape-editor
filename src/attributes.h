@@ -64,17 +64,41 @@ class FrameBufferAttributes
 class UniformAttributes
 {
 	public:
-		int index;
-		int selected_triangle;
+		int index = 0;
+		int selected_triangle = -1;
+		float rotation_angle = 0.0;
+		float scale_factor = 1.0;
 
+		Eigen::Matrix4f T1 = Eigen::Matrix4f::Zero(4,4);
+		Eigen::Matrix4f T2 = Eigen::Matrix4f::Zero(4,4);
 		Eigen::Matrix4f T = Eigen::Matrix4f::Zero(4,4);
-		Eigen::Vector3f from_position = Eigen::Vector3f(0,0,0);
+		Eigen::Matrix4f R = Eigen::Matrix4f::Zero(4,4);
+		Eigen::Matrix4f S = Eigen::Matrix4f::Zero(4,4);
+		Eigen::Vector3f barycenter = Eigen::Vector3f(0,0,0);
 		Eigen::Vector3f to_position = Eigen::Vector3f(0,0,0);
 
 	UniformAttributes() {
 		index = 0;
 		selected_triangle = -1;
+		rotation_angle = 0.0;
+		scale_factor = 1.0;
+		T1 << 1,0,0,0,
+			 0,1,0,0,
+			 0,0,1,0,
+			 0,0,0,1;
+		T2 << 1,0,0,0,
+			 0,1,0,0,
+			 0,0,1,0,
+			 0,0,0,1;
 		T << 1,0,0,0,
+			 0,1,0,0,
+			 0,0,1,0,
+			 0,0,0,1;
+		R << 1,0,0,0,
+			 0,1,0,0,
+			 0,0,1,0,
+			 0,0,0,1;
+		S << 1,0,0,0,
 			 0,1,0,0,
 			 0,0,1,0,
 			 0,0,0,1;

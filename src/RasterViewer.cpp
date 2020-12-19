@@ -6,6 +6,7 @@
 
 #include <functional>
 #include <iostream>
+#include <cmath>
 
 #include "raster.h"
 
@@ -72,28 +73,51 @@ void compute_barycenter(vector<VertexAttributes> &triangle_vertices, int index, 
     barycenter += triangle_vertices.at(3*index+1).position;
     barycenter += triangle_vertices.at(3*index+2).position;
     barycenter /= 3;
-    uniform.from_position << barycenter(0), barycenter(1), barycenter(2);
+    uniform.barycenter << barycenter(0), barycenter(1), barycenter(2);
 }
 
 
 void construct_T(UniformAttributes &uniform) {
-    Matrix4f T1, T2;
-    T1 << 1,0,0,-uniform.from_position(0),
-          0,1,0,-uniform.from_position(1),
-          0,0,1,-uniform.from_position(2),
+    uniform.T1 << 1,0,0,-uniform.barycenter(0),
+          0,1,0,-uniform.barycenter(1),
+          0,0,1,-uniform.barycenter(2),
           0,0,0,1;
-    T2 << 1,0,0,uniform.to_position(0),
+    uniform.T2 << 1,0,0,uniform.to_position(0),
           0,1,0,uniform.to_position(1),
           0,0,1,uniform.to_position(2),
           0,0,0,1;
-    uniform.T = T1 * T2;
+    uniform.T = uniform.T2 * uniform.T1;
 }
 
 void reset_T(UniformAttributes &uniform) {
+    uniform.T1 << 1,0,0,0,
+                 0,1,0,0,
+                 0,0,1,0,
+                 0,0,0,1;
+    uniform.T2 << 1,0,0,0,
+                 0,1,0,0,
+                 0,0,1,0,
+                 0,0,0,1;
     uniform.T << 1,0,0,0,
                  0,1,0,0,
                  0,0,1,0,
                  0,0,0,1;
+}
+
+void construct_R(UniformAttributes &uniform) {
+    float cosine = cos(uniform.rotation_angle);
+	float sine = sin(uniform.rotation_angle);
+	uniform.R << cosine, -sine, 0, 0,
+		 sine, cosine, 0, 0,
+		 0, 0, 1, 0,
+		 0, 0, 0, 1;
+}
+
+void construct_S(UniformAttributes &uniform) {
+    uniform.S << uniform.scale_factor, 0, 0, 0,
+		 0, uniform.scale_factor, 0, 0,
+		 0, 0, uniform.scale_factor, 0,
+		 0, 0, 0, 1;
 }
 
 
@@ -290,8 +314,7 @@ int main(int argc, char *args[])
                         line_vertices[6*uniform.selected_triangle+4].position = uniform.T * line_vertices[6*uniform.selected_triangle+4].position;
                         line_vertices[6*uniform.selected_triangle+5].position = uniform.T * line_vertices[6*uniform.selected_triangle+5].position;
 
-                        // reset uniform.selected_triangle
-                        uniform.selected_triangle = -1;
+                        reset_T(uniform);
                     }
                 }
 
@@ -331,6 +354,51 @@ int main(int argc, char *args[])
                 break;
             case 'c':
                 viewer.current_mode = color;
+                break;
+            case 'h':
+                if (viewer.current_mode == translation) {
+                    int selected = uniform.selected_triangle;
+                    if (selected != -1) {
+                        uniform.rotation_angle = -(10.0 / 180.0) * M_PI;
+                        compute_barycenter(triangle_vertices, selected, uniform);
+                        uniform.to_position << uniform.barycenter(0), uniform.barycenter(1), uniform.barycenter(2);
+                        construct_T(uniform);
+                        construct_R(uniform);
+
+                        for (int i = 0; i <= 2; i++) 
+                            triangle_vertices[3*selected+i].position = uniform.T2 * uniform.R * uniform.T1 * triangle_vertices[3*selected+i].position;
+                        
+                        for (int i = 0; i <= 5; i++) 
+                            line_vertices[6*selected+i].position = uniform.T2 * uniform.R * uniform.T1 * line_vertices[6*selected+i].position;
+
+                        viewer.redraw_next = true;
+                    }
+                }
+                break;
+            case 'j':
+                if (viewer.current_mode == translation) {
+                    int selected = uniform.selected_triangle;
+                    if (selected != -1) {
+                        uniform.rotation_angle = (10.0 / 180.0) * M_PI;
+                        compute_barycenter(triangle_vertices, selected, uniform);
+                        uniform.to_position << uniform.barycenter(0), uniform.barycenter(1), uniform.barycenter(2);
+                        construct_T(uniform);
+                        construct_R(uniform);
+
+                        for (int i = 0; i <= 2; i++) 
+                            triangle_vertices[3*selected+i].position = uniform.T2 * uniform.R * uniform.T1 * triangle_vertices[3*selected+i].position;
+                        
+                        for (int i = 0; i <= 5; i++) 
+                            line_vertices[6*selected+i].position = uniform.T2 * uniform.R * uniform.T1 * line_vertices[6*selected+i].position;
+
+                        viewer.redraw_next = true;
+                    }
+                }
+                break;
+            case 'k':
+                
+                break;
+            case 'l':
                 break;
             
             default:
