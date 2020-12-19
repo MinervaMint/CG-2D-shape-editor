@@ -152,7 +152,6 @@ void SDLViewer::launch(const int redraw_interval)
                 break;
 
             case SDL_MOUSEBUTTONDOWN:
-                break;
             case SDL_MOUSEBUTTONUP:
                 if (mouse_pressed != nullptr)
                     mouse_pressed(event.button.x, event.button.y, event.button.state == SDL_PRESSED, event.button.button, event.button.clicks);

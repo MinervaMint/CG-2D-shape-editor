@@ -66,7 +66,15 @@ class UniformAttributes
 	public:
 		int index;
 
+		Eigen::Matrix4f T = Eigen::Matrix4f::Zero(4,4);
+		Eigen::Vector3f from_position = Eigen::Vector3f(0,0,0);
+		Eigen::Vector3f to_position = Eigen::Vector3f(0,0,0);
+
 	UniformAttributes() {
 		index = 0;
+		T << 1,0,0,0,
+			 0,1,0,0,
+			 0,0,1,0,
+			 0,0,0,1;
 	}
 };
