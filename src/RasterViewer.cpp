@@ -119,11 +119,21 @@ float dist_sq(float x1, float y1, float x2, float y2) {
     return ((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));
 }
 
-int select_nearest_vertex(vector<VertexAttributes> triangle_vertices, float x, float y) {
+
+bool is_vertex_overlaid(const VertexAttributes& vertex, const FrameBuffer& frameBuffer) {
+    Vector4f position = vertex.T2 * vertex.R * vertex.S * vertex.T1 * vertex.position;
+    int x, y;
+    x = int((position(0)+1.0)/2.0 * frameBuffer.rows()); y = int((position(1)+1.0)/2.0 * frameBuffer.cols());
+    // cout << x << " " << y << " " << frameBuffer(x,y).depth << " " << vertex.order << endl;
+    return (frameBuffer(x,y).depth > vertex.order);
+}
+
+int select_nearest_vertex(vector<VertexAttributes> triangle_vertices, float x, float y, const FrameBuffer& frameBuffer) {
     if (triangle_vertices.size() == 0) return -1;
     float min_dist = 10000000.0;
     int selected_index = -1;
     for (int i = triangle_vertices.size() - 1; i >= 0; i--) {
+        if (is_vertex_overlaid(triangle_vertices[i], frameBuffer)) continue;
         // transform x, y using inverse transform
         Vector4f mouse_position = Vector4f(x, y, 0, 1);
         Matrix4f transform = triangle_vertices.at(i).T2 * triangle_vertices.at(i).R * triangle_vertices.at(i).S * triangle_vertices.at(i).T1;
@@ -131,7 +141,6 @@ int select_nearest_vertex(vector<VertexAttributes> triangle_vertices, float x, f
 
         float dist = dist_sq(mouse_position(0), mouse_position(1), triangle_vertices[i].position(0), triangle_vertices[i].position(1));
         if (min_dist > dist) {
-            // TODO: overlaid vertices?
             min_dist = dist;
             selected_index = i;
         }
@@ -345,7 +354,7 @@ int main(int argc, char *args[])
             }
             case color: {
                 if (!is_pressed)
-                    uniform.selected_vertex = select_nearest_vertex(triangle_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
+                    uniform.selected_vertex = select_nearest_vertex(triangle_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1, frameBuffer);
                 // cout << uniform.selected_vertex << endl;
                 break;
             }
