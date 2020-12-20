@@ -86,6 +86,7 @@ class UniformAttributes
 		int selected_triangle = -1;
 		float rotation_angle = 0.0;
 		float scale_factor = 1.0;
+		int selected_vertex = -1;
 
 		Eigen::Matrix4f T1 = Eigen::Matrix4f::Identity(4,4);
 		Eigen::Matrix4f T2 = Eigen::Matrix4f::Identity(4,4);
@@ -95,15 +96,28 @@ class UniformAttributes
 		Eigen::Vector3f barycenter = Eigen::Vector3f(0,0,0);
 		Eigen::Vector3f to_position = Eigen::Vector3f(0,0,0);
 
+		Eigen::MatrixXf preset_colors = Eigen::MatrixXf::Zero(9,4);
+
 	UniformAttributes() {
 		index = 0;
 		selected_triangle = -1;
 		rotation_angle = 0.0;
 		scale_factor = 1.0;
+		selected_vertex = -1;
 		T1 = Eigen::Matrix4f::Identity(4,4);
 		T2 = Eigen::Matrix4f::Identity(4,4);
 		T = Eigen::Matrix4f::Identity(4,4);
 		R = Eigen::Matrix4f::Identity(4,4);
 		S = Eigen::Matrix4f::Identity(4,4);
+
+		preset_colors << 0.698, 0.133, 0.133, 1,
+						 1, 0.647, 0, 1,
+						 0.98, 0.98, 0.823, 1,
+						 0.42, 0.557, 0.137, 1,
+						 0.686, 0.933, 0.933, 1,
+						 0.275, 0.51, 0.706, 1,
+						 0.576, 0.478, 0.859, 1,
+						 1,1,1,1,
+						 0,0,0,1;
 	}
 };

@@ -56,8 +56,7 @@ bool in_triangle(float x, float y, VertexAttributes va, VertexAttributes vb, Ver
 }
 
 
-int select_triangle(vector<VertexAttributes> &triangle_vertices, vector<VertexAttributes> &line_vertices, 
-                     float x, float y) {
+int select_triangle(vector<VertexAttributes> &triangle_vertices, float x, float y) {
     for (int i = triangle_vertices.size() / 3 - 1; i >=0; i--) {
         // transform x, y using inverse transform
         Vector4f mouse_position = Vector4f(x, y, 0, 1);
@@ -114,6 +113,35 @@ void construct_S(UniformAttributes &uniform) {
 		 0, 0, uniform.scale_factor, 0,
 		 0, 0, 0, 1;
 }
+
+
+float dist_sq(float x1, float y1, float x2, float y2) {
+    return ((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));
+}
+
+int select_nearest_vertex(vector<VertexAttributes> triangle_vertices, float x, float y) {
+    if (triangle_vertices.size() == 0) return -1;
+    float min_dist = 10000000.0;
+    int selected_index = -1;
+    for (int i = triangle_vertices.size() - 1; i >= 0; i--) {
+        // transform x, y using inverse transform
+        Vector4f mouse_position = Vector4f(x, y, 0, 1);
+        Matrix4f transform = triangle_vertices.at(i).T2 * triangle_vertices.at(i).R * triangle_vertices.at(i).S * triangle_vertices.at(i).T1;
+        mouse_position = transform.inverse() * mouse_position;
+
+        float dist = dist_sq(mouse_position(0), mouse_position(1), triangle_vertices[i].position(0), triangle_vertices[i].position(1));
+        if (min_dist > dist) {
+            // TODO: overlaid vertices?
+            min_dist = dist;
+            selected_index = i;
+        }
+    }
+    return selected_index;
+}
+
+
+
+
 
 
 
@@ -273,7 +301,7 @@ int main(int argc, char *args[])
             }
             case translation: {
                 if (is_pressed) {
-                    uniform.selected_triangle = select_triangle(triangle_vertices, line_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
+                    uniform.selected_triangle = select_triangle(triangle_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
                     if (uniform.selected_triangle != -1) {
                         compute_barycenter(triangle_vertices, uniform.selected_triangle, uniform);
                         reset_T(uniform);
@@ -307,7 +335,7 @@ int main(int argc, char *args[])
             }
             case deletion: {
                 if (!is_pressed) {
-                    int selected = select_triangle(triangle_vertices, line_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
+                    int selected = select_triangle(triangle_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
                     if (selected != -1) {
                         triangle_vertices.erase(triangle_vertices.begin() + 3*selected, triangle_vertices.begin() + 3*selected+3);
                         line_vertices.erase(line_vertices.begin() + 6*selected, line_vertices.begin() + 6*selected+6);
@@ -315,7 +343,12 @@ int main(int argc, char *args[])
                 }
                 break;
             }
-            
+            case color: {
+                if (!is_pressed)
+                    uniform.selected_vertex = select_nearest_vertex(triangle_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
+                // cout << uniform.selected_vertex << endl;
+                break;
+            }
             default:
                 break;
         }
@@ -408,10 +441,14 @@ int main(int argc, char *args[])
                     if (viewer.current_mode == translation) {
                         int selected = uniform.selected_triangle;
                         if (selected != -1) {
-                            for (int i = 0; i <= 2; i++)
+                            for (int i = 0; i <= 2; i++) {
                                 triangle_vertices[3*selected+i].scale_factor -= 0.25;
-                            for (int i = 0; i <= 5; i++)
+                                triangle_vertices[3*selected+i].scale_factor = max(float(0.0), triangle_vertices[3*selected+i].scale_factor);
+                            }
+                            for (int i = 0; i <= 5; i++) {
                                 line_vertices[6*selected+i].scale_factor -= 0.25;
+                                line_vertices[6*selected+i].scale_factor = max(float(0.0), line_vertices[6*selected+i].scale_factor);
+                            }
                             uniform.scale_factor = triangle_vertices[3*selected].scale_factor;
                             construct_S(uniform);
 
@@ -425,7 +462,22 @@ int main(int argc, char *args[])
                         }
                     }
                     break;
-                
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9': {
+                    int color_index = key - '0';
+                    if (uniform.selected_vertex != -1) {
+                        triangle_vertices[uniform.selected_vertex].color = uniform.preset_colors.row(color_index-1);
+                    }
+                    viewer.redraw_next = true;
+                    break;
+                }
                 default:
                     break;
             }
