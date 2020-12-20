@@ -13,6 +13,10 @@ class VertexAttributes
 		transform = Eigen::Matrix4f::Identity(4,4);
 		scale_factor = 1.0;
 		rotation_angle = 0.0;
+		T1 = Eigen::Matrix4f::Identity(4,4);
+		S = Eigen::Matrix4f::Identity(4,4);
+		R = Eigen::Matrix4f::Identity(4,4);
+		T2 = Eigen::Matrix4f::Identity(4,4);
 	}
 
     // Interpolates the vertex attributes
@@ -43,6 +47,10 @@ class VertexAttributes
 	Eigen::Matrix4f transform = Eigen::Matrix4f::Identity(4,4);
 	Eigen::Vector3f barycenter = Eigen::Vector3f(0,0,0);
 	Eigen::Vector3f to_position = Eigen::Vector3f(0,0,0);
+	Eigen::Matrix4f T1 = Eigen::Matrix4f::Identity(4,4);
+	Eigen::Matrix4f S = Eigen::Matrix4f::Identity(4,4);
+	Eigen::Matrix4f R = Eigen::Matrix4f::Identity(4,4);
+	Eigen::Matrix4f T2 = Eigen::Matrix4f::Identity(4,4);
 
 };
 

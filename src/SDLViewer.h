@@ -31,7 +31,7 @@ KMOD_GUI (KMOD_LGUI|KMOD_RGUI)
  */
 
 
-enum mode {insertion, translation, deletion, rotation, scaling, color};
+enum mode {insertion, translation, deletion, color};
 
 class SDLViewer
 {

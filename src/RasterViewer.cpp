@@ -61,7 +61,8 @@ int select_triangle(vector<VertexAttributes> &triangle_vertices, vector<VertexAt
     for (int i = triangle_vertices.size() / 3 - 1; i >=0; i--) {
         // transform x, y using inverse transform
         Vector4f mouse_position = Vector4f(x, y, 0, 1);
-        mouse_position = triangle_vertices.at(3*i).transform.inverse() * mouse_position;
+        Matrix4f transform = triangle_vertices.at(3*i).T2 * triangle_vertices.at(3*i).R * triangle_vertices.at(3*i).S * triangle_vertices.at(3*i).T1;
+        mouse_position = transform.inverse() * mouse_position;
         if (in_triangle(mouse_position(0), mouse_position(1), triangle_vertices.at(3*i), triangle_vertices.at(3*i+1), triangle_vertices.at(3*i+2))) {
             return i;
         }
@@ -133,7 +134,7 @@ int main(int argc, char *args[])
 	// The vertex shader
 	program.VertexShader = [](const VertexAttributes& va, const UniformAttributes& uniform) {
         Vector4f position;
-        position = va.transform * va.position;
+        position = va.T2 * va.R * va.S * va.T1 * va.position;
         
         VertexAttributes out(position(0), position(1), position(2));
         out.color = va.color;
@@ -219,10 +220,12 @@ int main(int argc, char *args[])
                 construct_T(uniform);
                 if (uniform.selected_triangle != -1 && triangle_vertices[3*uniform.selected_triangle].selected) {
                     for (int i = 0; i <= 2; i++) {
-                        triangle_vertices[3*uniform.selected_triangle+i].transform = uniform.T;
+                        triangle_vertices[3*uniform.selected_triangle+i].T1 = uniform.T1;
+                        triangle_vertices[3*uniform.selected_triangle+i].T2 = uniform.T2;
                     }
                     for (int i = 0; i <=5; i++) {
-                        line_vertices[6*uniform.selected_triangle+i].transform = uniform.T;
+                        line_vertices[6*uniform.selected_triangle+i].T1 = uniform.T1;
+                        line_vertices[6*uniform.selected_triangle+i].T2 = uniform.T2;
                     }
                 }
                 break;
@@ -284,13 +287,16 @@ int main(int argc, char *args[])
                 }
                 else {
                     if (uniform.selected_triangle != -1) {
+                        construct_T(uniform);
                         for (int i = 0; i <= 2; i++) {
                             triangle_vertices[3*uniform.selected_triangle+i].selected = false;
-                            triangle_vertices[3*uniform.selected_triangle+i].transform = uniform.T;
+                            triangle_vertices[3*uniform.selected_triangle+i].T1 = uniform.T1;
+                            triangle_vertices[3*uniform.selected_triangle+i].T2 = uniform.T2;
                         }
                         for (int i = 0; i <=5; i++) {
                             line_vertices[6*uniform.selected_triangle+i].selected = false;
-                            line_vertices[6*uniform.selected_triangle+i].transform = uniform.T;
+                            line_vertices[6*uniform.selected_triangle+i].T1 = uniform.T1;
+                            line_vertices[6*uniform.selected_triangle+i].T2 = uniform.T2;
                         }
 
                         reset_T(uniform);
@@ -321,67 +327,108 @@ int main(int argc, char *args[])
     };
 
     viewer.key_pressed = [&](char key, bool is_pressed, int modifier, int repeat) {
-        switch (key) {
-            case 'i':
-                viewer.current_mode = insertion;
-                break;
-            case 'o':
-                viewer.current_mode = translation;
-                break;
-            case 'p':
-                viewer.current_mode = deletion;
-                break;
-            case 'c':
-                viewer.current_mode = color;
-                break;
-            case 'h':
-                if (viewer.current_mode == translation) {
-                    int selected = uniform.selected_triangle;
-                    if (selected != -1) {
-                        uniform.rotation_angle = -(10.0 / 180.0) * M_PI;
-                        compute_barycenter(triangle_vertices, selected, uniform);
-                        uniform.to_position << uniform.barycenter(0), uniform.barycenter(1), uniform.barycenter(2);
-                        construct_T(uniform);
-                        construct_R(uniform);
+        if (!is_pressed) {
+            switch (key) {
+                case 'i':
+                    viewer.current_mode = insertion;
+                    break;
+                case 'o':
+                    viewer.current_mode = translation;
+                    break;
+                case 'p':
+                    viewer.current_mode = deletion;
+                    break;
+                case 'c':
+                    viewer.current_mode = color;
+                    break;
+                case 'h':
+                    if (viewer.current_mode == translation) {
+                        int selected = uniform.selected_triangle;
+                        if (selected != -1) {
+                            for (int i = 0; i <= 2; i++)
+                                triangle_vertices[3*selected+i].rotation_angle -= (10.0 / 180.0) * M_PI;
+                            for (int i = 0; i <= 5; i++)
+                                line_vertices[6*selected+i].rotation_angle -= (10.0 / 180.0) * M_PI;
+                            uniform.rotation_angle = triangle_vertices[3*selected].rotation_angle;
+                            construct_R(uniform);
 
-                        for (int i = 0; i <= 2; i++) 
-                            triangle_vertices[3*selected+i].position = uniform.T2 * uniform.R * uniform.T1 * triangle_vertices[3*selected+i].position;
-                        
-                        for (int i = 0; i <= 5; i++) 
-                            line_vertices[6*selected+i].position = uniform.T2 * uniform.R * uniform.T1 * line_vertices[6*selected+i].position;
+                            for (int i = 0; i <= 2; i++) 
+                                triangle_vertices[3*selected+i].R = uniform.R;
+                            
+                            for (int i = 0; i <= 5; i++) 
+                                line_vertices[6*selected+i].R = uniform.R;
 
-                        viewer.redraw_next = true;
+                            viewer.redraw_next = true;
+                        }
                     }
-                }
-                break;
-            case 'j':
-                if (viewer.current_mode == translation) {
-                    int selected = uniform.selected_triangle;
-                    if (selected != -1) {
-                        uniform.rotation_angle = (10.0 / 180.0) * M_PI;
-                        compute_barycenter(triangle_vertices, selected, uniform);
-                        uniform.to_position << uniform.barycenter(0), uniform.barycenter(1), uniform.barycenter(2);
-                        construct_T(uniform);
-                        construct_R(uniform);
+                    break;
+                case 'j':
+                    if (viewer.current_mode == translation) {
+                        int selected = uniform.selected_triangle;
+                        if (selected != -1) {
+                            for (int i = 0; i <= 2; i++)
+                                triangle_vertices[3*selected+i].rotation_angle += (10.0 / 180.0) * M_PI;
+                            for (int i = 0; i <= 5; i++)
+                                line_vertices[6*selected+i].rotation_angle += (10.0 / 180.0) * M_PI;
+                            uniform.rotation_angle = triangle_vertices[3*selected].rotation_angle;
+                            construct_R(uniform);
 
-                        for (int i = 0; i <= 2; i++) 
-                            triangle_vertices[3*selected+i].position = uniform.T2 * uniform.R * uniform.T1 * triangle_vertices[3*selected+i].position;
-                        
-                        for (int i = 0; i <= 5; i++) 
-                            line_vertices[6*selected+i].position = uniform.T2 * uniform.R * uniform.T1 * line_vertices[6*selected+i].position;
+                            for (int i = 0; i <= 2; i++) 
+                                triangle_vertices[3*selected+i].R = uniform.R;
+                            
+                            for (int i = 0; i <= 5; i++) 
+                                line_vertices[6*selected+i].R = uniform.R;
 
-                        viewer.redraw_next = true;
+                            viewer.redraw_next = true;
+                        }
                     }
-                }
-                break;
-            case 'k':
+                    break;
+                case 'k':
+                    if (viewer.current_mode == translation) {
+                        int selected = uniform.selected_triangle;
+                        if (selected != -1) {
+                            for (int i = 0; i <= 2; i++)
+                                triangle_vertices[3*selected+i].scale_factor += 0.25;
+                            for (int i = 0; i <= 5; i++)
+                                line_vertices[6*selected+i].scale_factor += 0.25;
+                            uniform.scale_factor = triangle_vertices[3*selected].scale_factor;
+                            construct_S(uniform);
 
-                break;
-            case 'l':
-                break;
-            
-            default:
-                break;
+                            for (int i = 0; i <= 2; i++) 
+                                triangle_vertices[3*selected+i].S = uniform.S;
+                            
+                            for (int i = 0; i <= 5; i++) 
+                                line_vertices[6*selected+i].S = uniform.S;
+
+                            viewer.redraw_next = true;
+                        }
+                    }
+                    break;
+                case 'l':
+                    if (viewer.current_mode == translation) {
+                        int selected = uniform.selected_triangle;
+                        if (selected != -1) {
+                            for (int i = 0; i <= 2; i++)
+                                triangle_vertices[3*selected+i].scale_factor -= 0.25;
+                            for (int i = 0; i <= 5; i++)
+                                line_vertices[6*selected+i].scale_factor -= 0.25;
+                            uniform.scale_factor = triangle_vertices[3*selected].scale_factor;
+                            construct_S(uniform);
+
+                            for (int i = 0; i <= 2; i++) 
+                                triangle_vertices[3*selected+i].S = uniform.S;
+                            
+                            for (int i = 0; i <= 5; i++) 
+                                line_vertices[6*selected+i].S = uniform.S;
+
+                            viewer.redraw_next = true;
+                        }
+                    }
+                    break;
+                
+                default:
+                    break;
+            }
         }
     };
 
