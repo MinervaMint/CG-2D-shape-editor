@@ -56,7 +56,7 @@ bool in_triangle(float x, float y, VertexAttributes va, VertexAttributes vb, Ver
 }
 
 
-int select_triangle(vector<VertexAttributes> &triangle_vertices, float x, float y) {
+int select_triangle(vector<VertexAttributes> &triangle_vertices, float x, float y, UniformAttributes& uniform) {
     for (int i = triangle_vertices.size() / 3 - 1; i >=0; i--) {
         // transform x, y using inverse transform
         Vector4f mouse_position = Vector4f(x, y, 0, 1);
@@ -124,7 +124,6 @@ bool is_vertex_overlaid(const VertexAttributes& vertex, const FrameBuffer& frame
     Vector4f position = vertex.T2 * vertex.R * vertex.S * vertex.T1 * vertex.position;
     int x, y;
     x = int((position(0)+1.0)/2.0 * frameBuffer.rows()); y = int((position(1)+1.0)/2.0 * frameBuffer.cols());
-    // cout << x << " " << y << " " << frameBuffer(x,y).depth << " " << vertex.order << endl;
     return (frameBuffer(x,y).depth > vertex.order);
 }
 
@@ -172,6 +171,7 @@ int main(int argc, char *args[])
 	program.VertexShader = [](const VertexAttributes& va, const UniformAttributes& uniform) {
         Vector4f position;
         position = va.T2 * va.R * va.S * va.T1 * va.position;
+        position = uniform.view * position;
         
         VertexAttributes out(position(0), position(1), position(2));
         out.color = va.color;
@@ -231,9 +231,11 @@ int main(int argc, char *args[])
     viewer.init("2D Shape Editor", width, height);
 
     viewer.mouse_move = [&](int x, int y, int xrel, int yrel){
+        Vector4f mouse_position = Vector4f((float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1, 0, 1);
+        mouse_position = uniform.view.inverse() * mouse_position;
         switch (viewer.current_mode) {
             case insertion: {
-                VertexAttributes new_vertex = VertexAttributes((float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1, 0);
+                VertexAttributes new_vertex = VertexAttributes(mouse_position(0), mouse_position(1), 0);
                 new_vertex.color << 1,0,0,1;
                 new_vertex.order = uniform.index;
                 if (viewer.num_new_vertices == 1) {
@@ -253,7 +255,7 @@ int main(int argc, char *args[])
                 break;
             }
             case translation: {
-                uniform.to_position << (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1, 0;
+                uniform.to_position << mouse_position(0), mouse_position(1), 0;
                 construct_T(uniform);
                 if (uniform.selected_triangle != -1 && triangle_vertices[3*uniform.selected_triangle].selected) {
                     for (int i = 0; i <= 2; i++) {
@@ -276,10 +278,12 @@ int main(int argc, char *args[])
     };
 
     viewer.mouse_pressed = [&](int x, int y, bool is_pressed, int button, int clicks) {
+        Vector4f mouse_position = Vector4f((float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1, 0, 1);
+        mouse_position = uniform.view.inverse() * mouse_position;
         switch (viewer.current_mode) {
             case insertion: {
                 if (!is_pressed) {
-                    VertexAttributes new_vertex = VertexAttributes((float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1, 0);
+                    VertexAttributes new_vertex = VertexAttributes(mouse_position(0), mouse_position(1), 0);
                     new_vertex.color << 1,0,0,1;
                     new_vertex.order = uniform.index;
                     viewer.num_new_vertices++;
@@ -310,7 +314,7 @@ int main(int argc, char *args[])
             }
             case translation: {
                 if (is_pressed) {
-                    uniform.selected_triangle = select_triangle(triangle_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
+                    uniform.selected_triangle = select_triangle(triangle_vertices, mouse_position(0), mouse_position(1), uniform);
                     if (uniform.selected_triangle != -1) {
                         compute_barycenter(triangle_vertices, uniform.selected_triangle, uniform);
                         reset_T(uniform);
@@ -344,18 +348,18 @@ int main(int argc, char *args[])
             }
             case deletion: {
                 if (!is_pressed) {
-                    int selected = select_triangle(triangle_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1);
+                    int selected = select_triangle(triangle_vertices, mouse_position(0), mouse_position(1), uniform);
                     if (selected != -1) {
                         triangle_vertices.erase(triangle_vertices.begin() + 3*selected, triangle_vertices.begin() + 3*selected+3);
                         line_vertices.erase(line_vertices.begin() + 6*selected, line_vertices.begin() + 6*selected+6);
+                        uniform.selected_triangle = -1;
                     }
                 }
                 break;
             }
             case color: {
                 if (!is_pressed)
-                    uniform.selected_vertex = select_nearest_vertex(triangle_vertices, (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1, frameBuffer);
-                // cout << uniform.selected_vertex << endl;
+                    uniform.selected_vertex = select_nearest_vertex(triangle_vertices, mouse_position(0), mouse_position(1), frameBuffer);
                 break;
             }
             default:
@@ -487,6 +491,75 @@ int main(int argc, char *args[])
                     viewer.redraw_next = true;
                     break;
                 }
+                
+                case '=':
+                case '+': {
+                    Matrix4f zoom;
+                    zoom << 1.2,0,0,0,
+                            0,1.2,0,0,
+                            0,0,1.2,0,
+                            0,0,0,1;
+                    uniform.view = zoom * uniform.view;
+
+                    viewer.redraw_next = true;
+                    break;
+                }
+                case '-': {
+                    Matrix4f zoom;
+                    zoom << 0.8,0,0,0,
+                            0,0.8,0,0,
+                            0,0,0.8,0,
+                            0,0,0,1;
+                    uniform.view = zoom * uniform.view;
+
+                    viewer.redraw_next = true;
+                    break;
+                }
+                case 'w': {
+                    Matrix4f pan;
+                    pan << 1,0,0,0,
+                           0,1,0,-0.2*2/uniform.view(0,0),
+                           0,0,1,0,
+                           0,0,0,1;
+                    uniform.view = pan * uniform.view;
+
+                    viewer.redraw_next = true;
+                    break;
+                }
+                case 'a': {
+                    Matrix4f pan;
+                    pan << 1,0,0,0.2*2/uniform.view(0,0),
+                           0,1,0,0,
+                           0,0,1,0,
+                           0,0,0,1;
+                    uniform.view = pan * uniform.view;
+
+                    viewer.redraw_next = true;
+                    break;
+                }
+                case 's': {
+                    Matrix4f pan;
+                    pan << 1,0,0,0,
+                           0,1,0,0.2*2/uniform.view(0,0),
+                           0,0,1,0,
+                           0,0,0,1;
+                    uniform.view = pan * uniform.view;
+
+                    viewer.redraw_next = true;
+                    break;
+                }
+                case 'd': {
+                    Matrix4f pan;
+                    pan << 1,0,0,-0.2*2/uniform.view(0,0),
+                           0,1,0,0,
+                           0,0,1,0,
+                           0,0,0,1;
+                    uniform.view = pan * uniform.view;
+
+                    viewer.redraw_next = true;
+                    break;
+                }
+
                 default:
                     break;
             }

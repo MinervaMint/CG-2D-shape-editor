@@ -98,6 +98,8 @@ class UniformAttributes
 
 		Eigen::MatrixXf preset_colors = Eigen::MatrixXf::Zero(9,4);
 
+		Eigen::Matrix4f view = Eigen::Matrix4f::Identity(4,4);
+
 	UniformAttributes() {
 		index = 0;
 		selected_triangle = -1;
@@ -119,5 +121,7 @@ class UniformAttributes
 						 0.576, 0.478, 0.859, 1,
 						 1,1,1,1,
 						 0,0,0,1;
+
+		view = Eigen::Matrix4f::Identity(4,4);
 	}
 };
