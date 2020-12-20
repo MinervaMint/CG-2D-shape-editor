@@ -255,7 +255,7 @@ int main(int argc, char *args[])
                 break;
             }
             case translation: {
-                uniform.to_position << mouse_position(0), mouse_position(1), 0;
+                uniform.to_position << mouse_position(0)+uniform.offset(0), mouse_position(1)+uniform.offset(1), 0;
                 construct_T(uniform);
                 if (uniform.selected_triangle != -1 && triangle_vertices[3*uniform.selected_triangle].selected) {
                     for (int i = 0; i <= 2; i++) {
@@ -317,6 +317,11 @@ int main(int argc, char *args[])
                     uniform.selected_triangle = select_triangle(triangle_vertices, mouse_position(0), mouse_position(1), uniform);
                     if (uniform.selected_triangle != -1) {
                         compute_barycenter(triangle_vertices, uniform.selected_triangle, uniform);
+                        Vector4f new_barycenter;
+                        new_barycenter << uniform.barycenter(0), uniform.barycenter(1), uniform.barycenter(2), 1;
+                        new_barycenter = triangle_vertices[3*uniform.selected_triangle].T2 * triangle_vertices[3*uniform.selected_triangle].R 
+                                        * triangle_vertices[3*uniform.selected_triangle].S * triangle_vertices[3*uniform.selected_triangle].T1 * new_barycenter;
+                        uniform.offset << new_barycenter(0)-mouse_position(0), new_barycenter(1)-mouse_position(1), new_barycenter(2)-mouse_position(2);
                         reset_T(uniform);
                         for (int i = 0; i <= 2; i++) {
                             triangle_vertices[3*uniform.selected_triangle+i].selected = true;
@@ -328,6 +333,7 @@ int main(int argc, char *args[])
                 }
                 else {
                     if (uniform.selected_triangle != -1) {
+                        uniform.to_position << mouse_position(0)+uniform.offset(0), mouse_position(1)+uniform.offset(1), 0;
                         construct_T(uniform);
                         for (int i = 0; i <= 2; i++) {
                             triangle_vertices[3*uniform.selected_triangle+i].selected = false;
@@ -340,6 +346,7 @@ int main(int argc, char *args[])
                             line_vertices[6*uniform.selected_triangle+i].T2 = uniform.T2;
                         }
 
+                        uniform.offset << 0,0,0;
                         reset_T(uniform);
                     }
                 }

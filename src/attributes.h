@@ -95,6 +95,7 @@ class UniformAttributes
 		Eigen::Matrix4f S = Eigen::Matrix4f::Identity(4,4);
 		Eigen::Vector3f barycenter = Eigen::Vector3f(0,0,0);
 		Eigen::Vector3f to_position = Eigen::Vector3f(0,0,0);
+		Eigen::Vector3f offset = Eigen::Vector3f(0,0,0);
 
 		Eigen::MatrixXf preset_colors = Eigen::MatrixXf::Zero(9,4);
 
