@@ -59,7 +59,10 @@ bool in_triangle(float x, float y, VertexAttributes va, VertexAttributes vb, Ver
 int select_triangle(vector<VertexAttributes> &triangle_vertices, vector<VertexAttributes> &line_vertices, 
                      float x, float y) {
     for (int i = triangle_vertices.size() / 3 - 1; i >=0; i--) {
-        if (in_triangle(x, y, triangle_vertices.at(3*i), triangle_vertices.at(3*i+1), triangle_vertices.at(3*i+2))) {
+        // transform x, y using inverse transform
+        Vector4f mouse_position = Vector4f(x, y, 0, 1);
+        mouse_position = triangle_vertices.at(3*i).transform.inverse() * mouse_position;
+        if (in_triangle(mouse_position(0), mouse_position(1), triangle_vertices.at(3*i), triangle_vertices.at(3*i+1), triangle_vertices.at(3*i+2))) {
             return i;
         }
     }
@@ -90,18 +93,9 @@ void construct_T(UniformAttributes &uniform) {
 }
 
 void reset_T(UniformAttributes &uniform) {
-    uniform.T1 << 1,0,0,0,
-                 0,1,0,0,
-                 0,0,1,0,
-                 0,0,0,1;
-    uniform.T2 << 1,0,0,0,
-                 0,1,0,0,
-                 0,0,1,0,
-                 0,0,0,1;
-    uniform.T << 1,0,0,0,
-                 0,1,0,0,
-                 0,0,1,0,
-                 0,0,0,1;
+    uniform.T1 = Matrix4f::Identity(4,4);
+    uniform.T2 = Matrix4f::Identity(4,4);
+    uniform.T = Matrix4f::Identity(4,4);
 }
 
 void construct_R(UniformAttributes &uniform) {
@@ -136,15 +130,10 @@ int main(int argc, char *args[])
 	// Basic rasterization program
 	Program program;
 
-	// The vertex shader is the identity
+	// The vertex shader
 	program.VertexShader = [](const VertexAttributes& va, const UniformAttributes& uniform) {
         Vector4f position;
-        if (va.selected) {
-            position = uniform.T * va.position;
-        }
-        else {
-            position = va.position;
-        }
+        position = va.transform * va.position;
         
         VertexAttributes out(position(0), position(1), position(2));
         out.color = va.color;
@@ -228,6 +217,14 @@ int main(int argc, char *args[])
             case translation: {
                 uniform.to_position << (float(x)/float(width) * 2) - 1, (float(height-1-y)/float(height) * 2) - 1, 0;
                 construct_T(uniform);
+                if (uniform.selected_triangle != -1 && triangle_vertices[3*uniform.selected_triangle].selected) {
+                    for (int i = 0; i <= 2; i++) {
+                        triangle_vertices[3*uniform.selected_triangle+i].transform = uniform.T;
+                    }
+                    for (int i = 0; i <=5; i++) {
+                        line_vertices[6*uniform.selected_triangle+i].transform = uniform.T;
+                    }
+                }
                 break;
             }
             
@@ -277,42 +274,24 @@ int main(int argc, char *args[])
                     if (uniform.selected_triangle != -1) {
                         compute_barycenter(triangle_vertices, uniform.selected_triangle, uniform);
                         reset_T(uniform);
-                        triangle_vertices[3*uniform.selected_triangle].selected = true;
-                        triangle_vertices[3*uniform.selected_triangle+1].selected = true;
-                        triangle_vertices[3*uniform.selected_triangle+2].selected = true;
-
-                        line_vertices[6*uniform.selected_triangle].selected = true;
-                        line_vertices[6*uniform.selected_triangle+1].selected = true;
-                        line_vertices[6*uniform.selected_triangle+2].selected = true;
-                        line_vertices[6*uniform.selected_triangle+3].selected = true;
-                        line_vertices[6*uniform.selected_triangle+4].selected = true;
-                        line_vertices[6*uniform.selected_triangle+5].selected = true;
+                        for (int i = 0; i <= 2; i++) {
+                            triangle_vertices[3*uniform.selected_triangle+i].selected = true;
+                        }
+                        for (int i = 0; i <=5; i++) {
+                            line_vertices[6*uniform.selected_triangle+i].selected = true;
+                        }
                     }
                 }
                 else {
                     if (uniform.selected_triangle != -1) {
-                        triangle_vertices[3*uniform.selected_triangle].selected = false;
-                        triangle_vertices[3*uniform.selected_triangle+1].selected = false;
-                        triangle_vertices[3*uniform.selected_triangle+2].selected = false;
-
-                        line_vertices[6*uniform.selected_triangle].selected = false;
-                        line_vertices[6*uniform.selected_triangle+1].selected = false;
-                        line_vertices[6*uniform.selected_triangle+2].selected = false;
-                        line_vertices[6*uniform.selected_triangle+3].selected = false;
-                        line_vertices[6*uniform.selected_triangle+4].selected = false;
-                        line_vertices[6*uniform.selected_triangle+5].selected = false;
-
-                        // update position
-                        triangle_vertices[3*uniform.selected_triangle].position = uniform.T * triangle_vertices[3*uniform.selected_triangle].position;
-                        triangle_vertices[3*uniform.selected_triangle+1].position = uniform.T * triangle_vertices[3*uniform.selected_triangle+1].position;
-                        triangle_vertices[3*uniform.selected_triangle+2].position = uniform.T * triangle_vertices[3*uniform.selected_triangle+2].position;
-
-                        line_vertices[6*uniform.selected_triangle].position = uniform.T * line_vertices[6*uniform.selected_triangle].position;
-                        line_vertices[6*uniform.selected_triangle+1].position = uniform.T * line_vertices[6*uniform.selected_triangle+1].position;
-                        line_vertices[6*uniform.selected_triangle+2].position = uniform.T * line_vertices[6*uniform.selected_triangle+2].position;
-                        line_vertices[6*uniform.selected_triangle+3].position = uniform.T * line_vertices[6*uniform.selected_triangle+3].position;
-                        line_vertices[6*uniform.selected_triangle+4].position = uniform.T * line_vertices[6*uniform.selected_triangle+4].position;
-                        line_vertices[6*uniform.selected_triangle+5].position = uniform.T * line_vertices[6*uniform.selected_triangle+5].position;
+                        for (int i = 0; i <= 2; i++) {
+                            triangle_vertices[3*uniform.selected_triangle+i].selected = false;
+                            triangle_vertices[3*uniform.selected_triangle+i].transform = uniform.T;
+                        }
+                        for (int i = 0; i <=5; i++) {
+                            line_vertices[6*uniform.selected_triangle+i].selected = false;
+                            line_vertices[6*uniform.selected_triangle+i].transform = uniform.T;
+                        }
 
                         reset_T(uniform);
                     }
@@ -396,7 +375,7 @@ int main(int argc, char *args[])
                 }
                 break;
             case 'k':
-                
+
                 break;
             case 'l':
                 break;

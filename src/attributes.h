@@ -10,6 +10,9 @@ class VertexAttributes
 		position << x,y,z,w;
 		color << 1,1,1,1;
 		selected = false;
+		transform = Eigen::Matrix4f::Identity(4,4);
+		scale_factor = 1.0;
+		rotation_angle = 0.0;
 	}
 
     // Interpolates the vertex attributes
@@ -34,6 +37,13 @@ class VertexAttributes
 	Eigen::Vector4f color;
 	int order;
 	bool selected;
+	float scale_factor;
+	float rotation_angle;
+
+	Eigen::Matrix4f transform = Eigen::Matrix4f::Identity(4,4);
+	Eigen::Vector3f barycenter = Eigen::Vector3f(0,0,0);
+	Eigen::Vector3f to_position = Eigen::Vector3f(0,0,0);
+
 };
 
 class FragmentAttributes
@@ -69,11 +79,11 @@ class UniformAttributes
 		float rotation_angle = 0.0;
 		float scale_factor = 1.0;
 
-		Eigen::Matrix4f T1 = Eigen::Matrix4f::Zero(4,4);
-		Eigen::Matrix4f T2 = Eigen::Matrix4f::Zero(4,4);
-		Eigen::Matrix4f T = Eigen::Matrix4f::Zero(4,4);
-		Eigen::Matrix4f R = Eigen::Matrix4f::Zero(4,4);
-		Eigen::Matrix4f S = Eigen::Matrix4f::Zero(4,4);
+		Eigen::Matrix4f T1 = Eigen::Matrix4f::Identity(4,4);
+		Eigen::Matrix4f T2 = Eigen::Matrix4f::Identity(4,4);
+		Eigen::Matrix4f T = Eigen::Matrix4f::Identity(4,4);
+		Eigen::Matrix4f R = Eigen::Matrix4f::Identity(4,4);
+		Eigen::Matrix4f S = Eigen::Matrix4f::Identity(4,4);
 		Eigen::Vector3f barycenter = Eigen::Vector3f(0,0,0);
 		Eigen::Vector3f to_position = Eigen::Vector3f(0,0,0);
 
@@ -82,25 +92,10 @@ class UniformAttributes
 		selected_triangle = -1;
 		rotation_angle = 0.0;
 		scale_factor = 1.0;
-		T1 << 1,0,0,0,
-			 0,1,0,0,
-			 0,0,1,0,
-			 0,0,0,1;
-		T2 << 1,0,0,0,
-			 0,1,0,0,
-			 0,0,1,0,
-			 0,0,0,1;
-		T << 1,0,0,0,
-			 0,1,0,0,
-			 0,0,1,0,
-			 0,0,0,1;
-		R << 1,0,0,0,
-			 0,1,0,0,
-			 0,0,1,0,
-			 0,0,0,1;
-		S << 1,0,0,0,
-			 0,1,0,0,
-			 0,0,1,0,
-			 0,0,0,1;
+		T1 = Eigen::Matrix4f::Identity(4,4);
+		T2 = Eigen::Matrix4f::Identity(4,4);
+		T = Eigen::Matrix4f::Identity(4,4);
+		R = Eigen::Matrix4f::Identity(4,4);
+		S = Eigen::Matrix4f::Identity(4,4);
 	}
 };
