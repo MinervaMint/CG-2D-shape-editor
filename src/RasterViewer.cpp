@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cmath>
 
+
 #include "raster.h"
 
 // Image writing library
@@ -391,9 +392,10 @@ int main(int argc, char *args[])
                 case 'p':
                     viewer.current_mode = deletion;
                     break;
-                case 'c':
+                case 'c': {
                     viewer.current_mode = color;
                     break;
+                }
                 case 'h':
                     if (viewer.current_mode == translation) {
                         int selected = uniform.selected_triangle;
@@ -436,14 +438,14 @@ int main(int argc, char *args[])
                         }
                     }
                     break;
-                case 'k':
+                case 'k': {
                     if (viewer.current_mode == translation) {
                         int selected = uniform.selected_triangle;
                         if (selected != -1) {
                             for (int i = 0; i <= 2; i++)
-                                triangle_vertices[3*selected+i].scale_factor += 0.25;
+                                triangle_vertices[3*selected+i].scale_factor *= 1.25;
                             for (int i = 0; i <= 5; i++)
-                                line_vertices[6*selected+i].scale_factor += 0.25;
+                                line_vertices[6*selected+i].scale_factor *= 1.25;
                             uniform.scale_factor = triangle_vertices[3*selected].scale_factor;
                             construct_S(uniform);
 
@@ -457,17 +459,16 @@ int main(int argc, char *args[])
                         }
                     }
                     break;
+                }
                 case 'l':
                     if (viewer.current_mode == translation) {
                         int selected = uniform.selected_triangle;
                         if (selected != -1) {
                             for (int i = 0; i <= 2; i++) {
-                                triangle_vertices[3*selected+i].scale_factor -= 0.25;
-                                triangle_vertices[3*selected+i].scale_factor = max(float(0.0), triangle_vertices[3*selected+i].scale_factor);
+                                triangle_vertices[3*selected+i].scale_factor *= 0.75;
                             }
                             for (int i = 0; i <= 5; i++) {
-                                line_vertices[6*selected+i].scale_factor -= 0.25;
-                                line_vertices[6*selected+i].scale_factor = max(float(0.0), line_vertices[6*selected+i].scale_factor);
+                                line_vertices[6*selected+i].scale_factor *= 0.75;
                             }
                             uniform.scale_factor = triangle_vertices[3*selected].scale_factor;
                             construct_S(uniform);
@@ -536,9 +537,9 @@ int main(int argc, char *args[])
                 case 'a': {
                     Matrix4f pan;
                     pan << 1,0,0,0.2*2/uniform.view(0,0),
-                           0,1,0,0,
-                           0,0,1,0,
-                           0,0,0,1;
+                        0,1,0,0,
+                        0,0,1,0,
+                        0,0,0,1;
                     uniform.view = pan * uniform.view;
 
                     viewer.redraw_next = true;
@@ -567,6 +568,54 @@ int main(int argc, char *args[])
                     break;
                 }
 
+                case 'x': {
+                    uniform.keyframe_to_positions.clear();
+                    break;
+                }
+                case 'f': {
+                    if (uniform.start_frame_triangles.empty()) {
+                        uniform.start_frame_triangles = triangle_vertices;
+                        uniform.start_frame_lines = line_vertices;
+                    }
+                    vector<Vector3f> to_positions;
+                    for (int i = 0; i <= triangle_vertices.size() - 1; i++) {
+                        Vector3f to_position;
+                        to_position << triangle_vertices[i].T2(0,3), triangle_vertices[i].T2(1,3), triangle_vertices[i].T2(2,3);
+                        to_positions.push_back(to_position);
+                    }
+                    uniform.keyframe_to_positions.push_back(to_positions);
+                    
+                    
+                    // viewer.current_mode = keyframe;
+                    // uniform.keyframe_to_positions.clear();
+                    // uniform.start_frame_triangles.clear();
+                    // uniform.start_frame_lines.clear();
+                    break;
+                }
+                case 'm': {
+                    triangle_vertices = uniform.start_frame_triangles;
+                    line_vertices = uniform.start_frame_lines;
+                    for (int frame = 0; frame <= uniform.keyframe_to_positions.size() - 2; frame++) {
+                        vector<Vector3f> positions1 = uniform.keyframe_to_positions[frame];
+                        vector<Vector3f> positions2 = uniform.keyframe_to_positions[frame+1];
+
+                        for (float t = 0.0; t < 1.0; t+=0.05) {
+                            for (int i = 0; i <= triangle_vertices.size() - 1; i++) {
+                                Vector3f pos1 = positions1[i];
+                                Vector3f pos2 = positions2[i];
+                                uniform.to_position = (1-t)*pos1 + t*pos2;
+                                compute_barycenter(triangle_vertices, int(i/3), uniform);
+                                construct_T(uniform);
+                                triangle_vertices[i].T1 = uniform.T1;
+                                triangle_vertices[i].T2 = uniform.T2;
+                            }
+
+                            viewer.redraw(viewer);
+                        }
+                    }
+
+                    viewer.redraw_next = true;
+                }
                 default:
                     break;
             }

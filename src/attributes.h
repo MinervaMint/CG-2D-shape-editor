@@ -2,6 +2,9 @@
 
 #include <Eigen/Core>
 
+using namespace std;
+using namespace Eigen;
+
 class VertexAttributes
 {
 	public:
@@ -100,6 +103,10 @@ class UniformAttributes
 		Eigen::MatrixXf preset_colors = Eigen::MatrixXf::Zero(9,4);
 
 		Eigen::Matrix4f view = Eigen::Matrix4f::Identity(4,4);
+
+		vector<vector<Eigen::Vector3f> >keyframe_to_positions;
+		vector<VertexAttributes> start_frame_triangles;
+		vector<VertexAttributes> start_frame_lines;
 
 	UniformAttributes() {
 		index = 0;
