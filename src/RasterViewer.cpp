@@ -26,10 +26,7 @@ using namespace Eigen;
 void clear_bg(FrameBuffer& frameBuffer) {
 	for (int i = 0; i <= frameBuffer.rows() - 1; i++) {
 		for (int j = 0; j <= frameBuffer.cols() - 1; j++) {
-			frameBuffer(i,j).color(0) = 255;
-			frameBuffer(i,j).color(1) = 255;
-			frameBuffer(i,j).color(2) = 255;
-			frameBuffer(i,j).color(3) = 255;
+			frameBuffer(i,j).color << 255, 255, 255, 255;
 		}
 	}
 }
@@ -38,11 +35,12 @@ void reset_framebuffer(FrameBuffer& frameBuffer) {
 	frameBuffer.setConstant(FrameBufferAttributes());
 }
 
+// check a is on which side of b
 bool orientation_test(Vector3f a, Vector3f b) {
     return ((a.cross(b))(2) > 0);
 }
 
-
+// check whether (x,y) is inside a triangle
 bool in_triangle(float x, float y, VertexAttributes va, VertexAttributes vb, VertexAttributes vc) {
     Vector3f a, b, c, p;
     a << va.position(0), va.position(1), 0;
@@ -56,8 +54,8 @@ bool in_triangle(float x, float y, VertexAttributes va, VertexAttributes vb, Ver
     return false;
 }
 
-
-int select_triangle(vector<VertexAttributes> &triangle_vertices, float x, float y, UniformAttributes& uniform) {
+// return the index of triangle selected, if none selected return -1
+int select_triangle(vector<VertexAttributes> &triangle_vertices, float x, float y) {
     for (int i = triangle_vertices.size() / 3 - 1; i >=0; i--) {
         // transform x, y using inverse transform
         Vector4f mouse_position = Vector4f(x, y, 0, 1);
@@ -322,7 +320,7 @@ int main(int argc, char *args[])
             }
             case translation: {
                 if (is_pressed) {
-                    uniform.selected_triangle = select_triangle(triangle_vertices, mouse_position(0), mouse_position(1), uniform);
+                    uniform.selected_triangle = select_triangle(triangle_vertices, mouse_position(0), mouse_position(1));
                     if (uniform.selected_triangle != -1) {
                         compute_barycenter(triangle_vertices, uniform.selected_triangle, uniform);
                         Vector4f new_barycenter;
@@ -365,7 +363,7 @@ int main(int argc, char *args[])
             }
             case deletion: {
                 if (!is_pressed) {
-                    int selected = select_triangle(triangle_vertices, mouse_position(0), mouse_position(1), uniform);
+                    int selected = select_triangle(triangle_vertices, mouse_position(0), mouse_position(1));
                     if (selected != -1) {
                         triangle_vertices.erase(triangle_vertices.begin() + 3*selected, triangle_vertices.begin() + 3*selected+3);
                         line_vertices.erase(line_vertices.begin() + 6*selected, line_vertices.begin() + 6*selected+6);
@@ -658,33 +656,6 @@ int main(int argc, char *args[])
 
                         viewer.redraw(viewer);
                     }
-
-
-
-                    // for (int frame = 0; frame <= int(uniform.keyframe_to_positions.size()) - 2; frame++) {
-                    //     vector<Vector3f> positions1 = uniform.keyframe_to_positions[frame];
-                    //     vector<Vector3f> positions2 = uniform.keyframe_to_positions[frame+1];
-
-                    //     for (float t = 0.0; t <= 1.01; t+=0.05) {
-                    //         for (int i = 0; i <= triangle_vertices.size()/3 - 1; i++) {
-                    //             Vector3f pos1 = positions1[3*i];
-                    //             Vector3f pos2 = positions2[3*i];
-                    //             uniform.to_position = (1-t)*pos1 + t*pos2;
-                    //             compute_barycenter(triangle_vertices, i, uniform);
-                    //             construct_T(uniform);
-                    //             for (int j = 0; j <= 2; j++) {
-                    //                 triangle_vertices[3*i+j].T1 = uniform.T1;
-                    //                 triangle_vertices[3*i+j].T2 = uniform.T2;
-                    //             }
-                    //             for (int j = 0; j <= 5; j++) {
-                    //                 line_vertices[6*i+j].T1 = uniform.T1;
-                    //                 line_vertices[6*i+j].T2 = uniform.T2;
-                    //             }
-                    //         }
-
-                    //         viewer.redraw(viewer);
-                    //     }
-                    // }
 
                     viewer.redraw_next = true;
                     break;
