@@ -16,6 +16,7 @@ class VertexAttributes
 		transform = Eigen::Matrix4f::Identity(4,4);
 		scale_factor = 1.0;
 		rotation_angle = 0.0;
+		moved = false;
 		T1 = Eigen::Matrix4f::Identity(4,4);
 		S = Eigen::Matrix4f::Identity(4,4);
 		R = Eigen::Matrix4f::Identity(4,4);
@@ -46,6 +47,7 @@ class VertexAttributes
 	bool selected;
 	float scale_factor;
 	float rotation_angle;
+	bool moved;
 
 	Eigen::Matrix4f transform = Eigen::Matrix4f::Identity(4,4);
 	Eigen::Vector3f barycenter = Eigen::Vector3f(0,0,0);

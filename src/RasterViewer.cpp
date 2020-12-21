@@ -128,7 +128,7 @@ bool is_vertex_overlaid(const VertexAttributes& vertex, const FrameBuffer& frame
     return (frameBuffer(x,y).depth > vertex.order);
 }
 
-int select_nearest_vertex(vector<VertexAttributes> triangle_vertices, float x, float y, const FrameBuffer& frameBuffer) {
+int select_nearest_vertex(const vector<VertexAttributes>& triangle_vertices, float x, float y, const FrameBuffer& frameBuffer) {
     if (triangle_vertices.size() == 0) return -1;
     float min_dist = 10000000.0;
     int selected_index = -1;
@@ -149,6 +149,13 @@ int select_nearest_vertex(vector<VertexAttributes> triangle_vertices, float x, f
 }
 
 
+
+Vector3f de_casteljau(vector<Vector3f>& control_points, float t, int lower_index, int upper_index) {
+    if (upper_index == 0) {
+        return control_points[lower_index];
+    }
+    return (1.0-t)*de_casteljau(control_points, t, lower_index, upper_index-1) + t*de_casteljau(control_points, t, lower_index+1, upper_index-1);
+}
 
 
 
@@ -337,11 +344,13 @@ int main(int argc, char *args[])
                         uniform.to_position << mouse_position(0)+uniform.offset(0), mouse_position(1)+uniform.offset(1), 0;
                         construct_T(uniform);
                         for (int i = 0; i <= 2; i++) {
+                            triangle_vertices[3*uniform.selected_triangle+i].moved = true;
                             triangle_vertices[3*uniform.selected_triangle+i].selected = false;
                             triangle_vertices[3*uniform.selected_triangle+i].T1 = uniform.T1;
                             triangle_vertices[3*uniform.selected_triangle+i].T2 = uniform.T2;
                         }
                         for (int i = 0; i <=5; i++) {
+                            line_vertices[6*uniform.selected_triangle+i].moved = true;
                             line_vertices[6*uniform.selected_triangle+i].selected = false;
                             line_vertices[6*uniform.selected_triangle+i].T1 = uniform.T1;
                             line_vertices[6*uniform.selected_triangle+i].T2 = uniform.T2;
@@ -573,41 +582,45 @@ int main(int argc, char *args[])
                     break;
                 }
                 case 'f': {
-                    if (uniform.start_frame_triangles.empty()) {
-                        uniform.start_frame_triangles = triangle_vertices;
-                        uniform.start_frame_lines = line_vertices;
-                    }
+                    uniform.start_frame_triangles = triangle_vertices;
+                    uniform.start_frame_lines = line_vertices;
                     vector<Vector3f> to_positions;
                     for (int i = 0; i <= triangle_vertices.size() - 1; i++) {
                         Vector3f to_position;
-                        to_position << triangle_vertices[i].T2(0,3), triangle_vertices[i].T2(1,3), triangle_vertices[i].T2(2,3);
+                        if (triangle_vertices[i].moved)
+                            to_position << triangle_vertices[i].T2(0,3), triangle_vertices[i].T2(1,3), triangle_vertices[i].T2(2,3);
+                        else {
+                            compute_barycenter(triangle_vertices, int(i/3), uniform);
+                            to_position << uniform.barycenter(0), uniform.barycenter(1), uniform.barycenter(2);
+                        }
                         to_positions.push_back(to_position);
                     }
                     uniform.keyframe_to_positions.push_back(to_positions);
                     
-                    
-                    // viewer.current_mode = keyframe;
-                    // uniform.keyframe_to_positions.clear();
-                    // uniform.start_frame_triangles.clear();
-                    // uniform.start_frame_lines.clear();
                     break;
                 }
                 case 'm': {
                     triangle_vertices = uniform.start_frame_triangles;
                     line_vertices = uniform.start_frame_lines;
-                    for (int frame = 0; frame <= uniform.keyframe_to_positions.size() - 2; frame++) {
+                    for (int frame = 0; frame <= int(uniform.keyframe_to_positions.size()) - 2; frame++) {
                         vector<Vector3f> positions1 = uniform.keyframe_to_positions[frame];
                         vector<Vector3f> positions2 = uniform.keyframe_to_positions[frame+1];
 
-                        for (float t = 0.0; t < 1.0; t+=0.05) {
-                            for (int i = 0; i <= triangle_vertices.size() - 1; i++) {
-                                Vector3f pos1 = positions1[i];
-                                Vector3f pos2 = positions2[i];
+                        for (float t = 0.0; t <= 1.01; t+=0.02) {
+                            for (int i = 0; i <= triangle_vertices.size()/3 - 1; i++) {
+                                Vector3f pos1 = positions1[3*i];
+                                Vector3f pos2 = positions2[3*i];
                                 uniform.to_position = (1-t)*pos1 + t*pos2;
-                                compute_barycenter(triangle_vertices, int(i/3), uniform);
+                                compute_barycenter(triangle_vertices, i, uniform);
                                 construct_T(uniform);
-                                triangle_vertices[i].T1 = uniform.T1;
-                                triangle_vertices[i].T2 = uniform.T2;
+                                for (int j = 0; j <= 2; j++) {
+                                    triangle_vertices[3*i+j].T1 = uniform.T1;
+                                    triangle_vertices[3*i+j].T2 = uniform.T2;
+                                }
+                                for (int j = 0; j <= 5; j++) {
+                                    line_vertices[6*i+j].T1 = uniform.T1;
+                                    line_vertices[6*i+j].T2 = uniform.T2;
+                                }
                             }
 
                             viewer.redraw(viewer);
@@ -615,6 +628,66 @@ int main(int argc, char *args[])
                     }
 
                     viewer.redraw_next = true;
+                    break;
+                }
+                case 'b': {
+                    triangle_vertices = uniform.start_frame_triangles;
+                    line_vertices = uniform.start_frame_lines;
+
+
+                    for (float t = 0.0; t <= 1.001; t+=0.01) {
+                        for (int i = 0; i <= triangle_vertices.size()/3 - 1; i++) {
+                            vector<Vector3f> control_points;
+                            for (int frame = 0; frame <= int(uniform.keyframe_to_positions.size()) - 1; frame++) {
+                                control_points.push_back(uniform.keyframe_to_positions[frame][3*i]);
+                            }
+                            uniform.to_position = de_casteljau(control_points, t, 0, control_points.size()-1);
+
+                            compute_barycenter(triangle_vertices, i, uniform);
+                            construct_T(uniform);
+                            for (int j = 0; j <= 2; j++) {
+                                triangle_vertices[3*i+j].T1 = uniform.T1;
+                                triangle_vertices[3*i+j].T2 = uniform.T2;
+                            }
+                            for (int j = 0; j <= 5; j++) {
+                                line_vertices[6*i+j].T1 = uniform.T1;
+                                line_vertices[6*i+j].T2 = uniform.T2;
+                            }
+
+                        }
+
+                        viewer.redraw(viewer);
+                    }
+
+
+
+                    // for (int frame = 0; frame <= int(uniform.keyframe_to_positions.size()) - 2; frame++) {
+                    //     vector<Vector3f> positions1 = uniform.keyframe_to_positions[frame];
+                    //     vector<Vector3f> positions2 = uniform.keyframe_to_positions[frame+1];
+
+                    //     for (float t = 0.0; t <= 1.01; t+=0.05) {
+                    //         for (int i = 0; i <= triangle_vertices.size()/3 - 1; i++) {
+                    //             Vector3f pos1 = positions1[3*i];
+                    //             Vector3f pos2 = positions2[3*i];
+                    //             uniform.to_position = (1-t)*pos1 + t*pos2;
+                    //             compute_barycenter(triangle_vertices, i, uniform);
+                    //             construct_T(uniform);
+                    //             for (int j = 0; j <= 2; j++) {
+                    //                 triangle_vertices[3*i+j].T1 = uniform.T1;
+                    //                 triangle_vertices[3*i+j].T2 = uniform.T2;
+                    //             }
+                    //             for (int j = 0; j <= 5; j++) {
+                    //                 line_vertices[6*i+j].T1 = uniform.T1;
+                    //                 line_vertices[6*i+j].T2 = uniform.T2;
+                    //             }
+                    //         }
+
+                    //         viewer.redraw(viewer);
+                    //     }
+                    // }
+
+                    viewer.redraw_next = true;
+                    break;
                 }
                 default:
                     break;
