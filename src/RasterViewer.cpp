@@ -113,25 +113,26 @@ void construct_S(UniformAttributes &uniform) {
 		 0, 0, 0, 1;
 }
 
-
+// return the distance between (x1,y1), (x2,y2)
 float dist_sq(float x1, float y1, float x2, float y2) {
     return ((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));
 }
 
-
-bool is_vertex_overlaid(const VertexAttributes& vertex, const FrameBuffer& frameBuffer) {
-    Vector4f position = vertex.T2 * vertex.R * vertex.S * vertex.T1 * vertex.position;
+// check whether a certain vertex is invisible (overlaid by other triangles)
+bool is_vertex_overlaid(const VertexAttributes& vertex, const FrameBuffer& frameBuffer, const UniformAttributes& uniform) {
+    Vector4f position = uniform.view * vertex.T2 * vertex.R * vertex.S * vertex.T1 * vertex.position;
     int x, y;
     x = int((position(0)+1.0)/2.0 * frameBuffer.rows()); y = int((position(1)+1.0)/2.0 * frameBuffer.cols());
     return (frameBuffer(x,y).depth > vertex.order);
 }
 
-int select_nearest_vertex(const vector<VertexAttributes>& triangle_vertices, float x, float y, const FrameBuffer& frameBuffer) {
+// return the index of nearest vertex to (x,y)
+int select_nearest_vertex(const vector<VertexAttributes>& triangle_vertices, float x, float y, const FrameBuffer& frameBuffer, const UniformAttributes& uniform) {
     if (triangle_vertices.size() == 0) return -1;
     float min_dist = 10000000.0;
     int selected_index = -1;
     for (int i = triangle_vertices.size() - 1; i >= 0; i--) {
-        if (is_vertex_overlaid(triangle_vertices[i], frameBuffer)) continue;
+        if (is_vertex_overlaid(triangle_vertices[i], frameBuffer, uniform)) continue;
         // transform x, y using inverse transform
         Vector4f mouse_position = Vector4f(x, y, 0, 1);
         Matrix4f transform = triangle_vertices.at(i).T2 * triangle_vertices.at(i).R * triangle_vertices.at(i).S * triangle_vertices.at(i).T1;
@@ -146,8 +147,7 @@ int select_nearest_vertex(const vector<VertexAttributes>& triangle_vertices, flo
     return selected_index;
 }
 
-
-
+// recursively compute points on a bezier curve using De Casteljau algorithm
 Vector3f de_casteljau(vector<Vector3f>& control_points, float t, int lower_index, int upper_index) {
     if (upper_index == 0) {
         return control_points[lower_index];
@@ -184,13 +184,8 @@ int main(int argc, char *args[])
         out.order = va.order;
         out.selected = va.selected;
         if (out.selected)
-            out.color << 0,0,1,1;
+            out.color << 0.3,0.3,0.3,1;
         return out;
-	};
-
-	// The fragment shader uses a fixed color
-	program.FragmentShader = [](const VertexAttributes& va, const UniformAttributes& uniform) {
-		return FragmentAttributes(va.color(0),va.color(1),va.color(2));
 	};
 
 	// The blending shader for things really drawn
@@ -209,7 +204,6 @@ int main(int argc, char *args[])
     };
 
 
-
     // The fragment shader for triangles
 	function<FragmentAttributes(const VertexAttributes&, const UniformAttributes&)> triangle_FS = [](const VertexAttributes& va, const UniformAttributes& uniform) {
         FragmentAttributes out(va.color(0),va.color(1),va.color(2));
@@ -224,13 +218,10 @@ int main(int argc, char *args[])
 	};
     
 
-
-
-
     // vertices
 	vector<VertexAttributes> triangle_vertices;
-	vector<VertexAttributes> line_vertices;
-    vector<VertexAttributes> temp_lines;
+	vector<VertexAttributes> line_vertices; // for bounding lines
+    vector<VertexAttributes> temp_lines; // for preview lines
 
     // Initialize the viewer and the corresponding callbacks
     SDLViewer viewer;
@@ -242,7 +233,7 @@ int main(int argc, char *args[])
         switch (viewer.current_mode) {
             case insertion: {
                 VertexAttributes new_vertex = VertexAttributes(mouse_position(0), mouse_position(1), 0);
-                new_vertex.color << 1,0,0,1;
+                new_vertex.color = uniform.preset_colors.row(3);
                 new_vertex.order = uniform.index;
                 if (viewer.num_new_vertices == 1) {
                     temp_lines.clear();
@@ -290,7 +281,7 @@ int main(int argc, char *args[])
             case insertion: {
                 if (!is_pressed) {
                     VertexAttributes new_vertex = VertexAttributes(mouse_position(0), mouse_position(1), 0);
-                    new_vertex.color << 1,0,0,1;
+                    new_vertex.color = uniform.preset_colors.row(3);
                     new_vertex.order = uniform.index;
                     viewer.num_new_vertices++;
 
@@ -374,7 +365,7 @@ int main(int argc, char *args[])
             }
             case color: {
                 if (!is_pressed)
-                    uniform.selected_vertex = select_nearest_vertex(triangle_vertices, mouse_position(0), mouse_position(1), frameBuffer);
+                    uniform.selected_vertex = select_nearest_vertex(triangle_vertices, mouse_position(0), mouse_position(1), frameBuffer, uniform);
                 break;
             }
             default:
