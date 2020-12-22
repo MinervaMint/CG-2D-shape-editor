@@ -26,10 +26,7 @@ using namespace Eigen;
 void clear_bg(FrameBuffer& frameBuffer) {
 	for (int i = 0; i <= frameBuffer.rows() - 1; i++) {
 		for (int j = 0; j <= frameBuffer.cols() - 1; j++) {
-			frameBuffer(i,j).color(0) = 255;
-			frameBuffer(i,j).color(1) = 255;
-			frameBuffer(i,j).color(2) = 255;
-			frameBuffer(i,j).color(3) = 255;
+			frameBuffer(i,j).color << 255, 255, 255, 255;
 		}
 	}
 }
@@ -38,11 +35,12 @@ void reset_framebuffer(FrameBuffer& frameBuffer) {
 	frameBuffer.setConstant(FrameBufferAttributes());
 }
 
+// check a is on which side of b
 bool orientation_test(Vector3f a, Vector3f b) {
     return ((a.cross(b))(2) > 0);
 }
 
-
+// check whether (x,y) is inside a triangle
 bool in_triangle(float x, float y, VertexAttributes va, VertexAttributes vb, VertexAttributes vc) {
     Vector3f a, b, c, p;
     a << va.position(0), va.position(1), 0;
@@ -56,8 +54,8 @@ bool in_triangle(float x, float y, VertexAttributes va, VertexAttributes vb, Ver
     return false;
 }
 
-
-int select_triangle(vector<VertexAttributes> &triangle_vertices, float x, float y, UniformAttributes& uniform) {
+// return the index of triangle selected, if none selected return -1
+int select_triangle(vector<VertexAttributes> &triangle_vertices, float x, float y) {
     for (int i = triangle_vertices.size() / 3 - 1; i >=0; i--) {
         // transform x, y using inverse transform
         Vector4f mouse_position = Vector4f(x, y, 0, 1);
@@ -115,25 +113,26 @@ void construct_S(UniformAttributes &uniform) {
 		 0, 0, 0, 1;
 }
 
-
+// return the distance between (x1,y1), (x2,y2)
 float dist_sq(float x1, float y1, float x2, float y2) {
     return ((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));
 }
 
-
-bool is_vertex_overlaid(const VertexAttributes& vertex, const FrameBuffer& frameBuffer) {
-    Vector4f position = vertex.T2 * vertex.R * vertex.S * vertex.T1 * vertex.position;
+// check whether a certain vertex is invisible (overlaid by other triangles)
+bool is_vertex_overlaid(const VertexAttributes& vertex, const FrameBuffer& frameBuffer, const UniformAttributes& uniform) {
+    Vector4f position = uniform.view * vertex.T2 * vertex.R * vertex.S * vertex.T1 * vertex.position;
     int x, y;
     x = int((position(0)+1.0)/2.0 * frameBuffer.rows()); y = int((position(1)+1.0)/2.0 * frameBuffer.cols());
     return (frameBuffer(x,y).depth > vertex.order);
 }
 
-int select_nearest_vertex(const vector<VertexAttributes>& triangle_vertices, float x, float y, const FrameBuffer& frameBuffer) {
+// return the index of nearest vertex to (x,y)
+int select_nearest_vertex(const vector<VertexAttributes>& triangle_vertices, float x, float y, const FrameBuffer& frameBuffer, const UniformAttributes& uniform) {
     if (triangle_vertices.size() == 0) return -1;
     float min_dist = 10000000.0;
     int selected_index = -1;
     for (int i = triangle_vertices.size() - 1; i >= 0; i--) {
-        if (is_vertex_overlaid(triangle_vertices[i], frameBuffer)) continue;
+        if (is_vertex_overlaid(triangle_vertices[i], frameBuffer, uniform)) continue;
         // transform x, y using inverse transform
         Vector4f mouse_position = Vector4f(x, y, 0, 1);
         Matrix4f transform = triangle_vertices.at(i).T2 * triangle_vertices.at(i).R * triangle_vertices.at(i).S * triangle_vertices.at(i).T1;
@@ -148,8 +147,7 @@ int select_nearest_vertex(const vector<VertexAttributes>& triangle_vertices, flo
     return selected_index;
 }
 
-
-
+// recursively compute points on a bezier curve using De Casteljau algorithm
 Vector3f de_casteljau(vector<Vector3f>& control_points, float t, int lower_index, int upper_index) {
     if (upper_index == 0) {
         return control_points[lower_index];
@@ -186,13 +184,8 @@ int main(int argc, char *args[])
         out.order = va.order;
         out.selected = va.selected;
         if (out.selected)
-            out.color << 0,0,1,1;
+            out.color << 0.3,0.3,0.3,1;
         return out;
-	};
-
-	// The fragment shader uses a fixed color
-	program.FragmentShader = [](const VertexAttributes& va, const UniformAttributes& uniform) {
-		return FragmentAttributes(va.color(0),va.color(1),va.color(2));
 	};
 
 	// The blending shader for things really drawn
@@ -211,7 +204,6 @@ int main(int argc, char *args[])
     };
 
 
-
     // The fragment shader for triangles
 	function<FragmentAttributes(const VertexAttributes&, const UniformAttributes&)> triangle_FS = [](const VertexAttributes& va, const UniformAttributes& uniform) {
         FragmentAttributes out(va.color(0),va.color(1),va.color(2));
@@ -226,13 +218,10 @@ int main(int argc, char *args[])
 	};
     
 
-
-
-
     // vertices
 	vector<VertexAttributes> triangle_vertices;
-	vector<VertexAttributes> line_vertices;
-    vector<VertexAttributes> temp_lines;
+	vector<VertexAttributes> line_vertices; // for bounding lines
+    vector<VertexAttributes> temp_lines; // for preview lines
 
     // Initialize the viewer and the corresponding callbacks
     SDLViewer viewer;
@@ -244,7 +233,7 @@ int main(int argc, char *args[])
         switch (viewer.current_mode) {
             case insertion: {
                 VertexAttributes new_vertex = VertexAttributes(mouse_position(0), mouse_position(1), 0);
-                new_vertex.color << 1,0,0,1;
+                new_vertex.color = uniform.preset_colors.row(3);
                 new_vertex.order = uniform.index;
                 if (viewer.num_new_vertices == 1) {
                     temp_lines.clear();
@@ -292,7 +281,7 @@ int main(int argc, char *args[])
             case insertion: {
                 if (!is_pressed) {
                     VertexAttributes new_vertex = VertexAttributes(mouse_position(0), mouse_position(1), 0);
-                    new_vertex.color << 1,0,0,1;
+                    new_vertex.color = uniform.preset_colors.row(3);
                     new_vertex.order = uniform.index;
                     viewer.num_new_vertices++;
 
@@ -322,7 +311,7 @@ int main(int argc, char *args[])
             }
             case translation: {
                 if (is_pressed) {
-                    uniform.selected_triangle = select_triangle(triangle_vertices, mouse_position(0), mouse_position(1), uniform);
+                    uniform.selected_triangle = select_triangle(triangle_vertices, mouse_position(0), mouse_position(1));
                     if (uniform.selected_triangle != -1) {
                         compute_barycenter(triangle_vertices, uniform.selected_triangle, uniform);
                         Vector4f new_barycenter;
@@ -365,7 +354,7 @@ int main(int argc, char *args[])
             }
             case deletion: {
                 if (!is_pressed) {
-                    int selected = select_triangle(triangle_vertices, mouse_position(0), mouse_position(1), uniform);
+                    int selected = select_triangle(triangle_vertices, mouse_position(0), mouse_position(1));
                     if (selected != -1) {
                         triangle_vertices.erase(triangle_vertices.begin() + 3*selected, triangle_vertices.begin() + 3*selected+3);
                         line_vertices.erase(line_vertices.begin() + 6*selected, line_vertices.begin() + 6*selected+6);
@@ -376,7 +365,7 @@ int main(int argc, char *args[])
             }
             case color: {
                 if (!is_pressed)
-                    uniform.selected_vertex = select_nearest_vertex(triangle_vertices, mouse_position(0), mouse_position(1), frameBuffer);
+                    uniform.selected_vertex = select_nearest_vertex(triangle_vertices, mouse_position(0), mouse_position(1), frameBuffer, uniform);
                 break;
             }
             default:
@@ -658,33 +647,6 @@ int main(int argc, char *args[])
 
                         viewer.redraw(viewer);
                     }
-
-
-
-                    // for (int frame = 0; frame <= int(uniform.keyframe_to_positions.size()) - 2; frame++) {
-                    //     vector<Vector3f> positions1 = uniform.keyframe_to_positions[frame];
-                    //     vector<Vector3f> positions2 = uniform.keyframe_to_positions[frame+1];
-
-                    //     for (float t = 0.0; t <= 1.01; t+=0.05) {
-                    //         for (int i = 0; i <= triangle_vertices.size()/3 - 1; i++) {
-                    //             Vector3f pos1 = positions1[3*i];
-                    //             Vector3f pos2 = positions2[3*i];
-                    //             uniform.to_position = (1-t)*pos1 + t*pos2;
-                    //             compute_barycenter(triangle_vertices, i, uniform);
-                    //             construct_T(uniform);
-                    //             for (int j = 0; j <= 2; j++) {
-                    //                 triangle_vertices[3*i+j].T1 = uniform.T1;
-                    //                 triangle_vertices[3*i+j].T2 = uniform.T2;
-                    //             }
-                    //             for (int j = 0; j <= 5; j++) {
-                    //                 line_vertices[6*i+j].T1 = uniform.T1;
-                    //                 line_vertices[6*i+j].T2 = uniform.T2;
-                    //             }
-                    //         }
-
-                    //         viewer.redraw(viewer);
-                    //     }
-                    // }
 
                     viewer.redraw_next = true;
                     break;
